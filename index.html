@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fog of Walk - Explora tu Barrio</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>🚶‍♂️ Fog of Walk</h1>
+            <div class="stats">
+                <div class="stat">
+                    <span class="label">Nivel:</span>
+                    <span id="level">1</span>
+                </div>
+                <div class="stat">
+                    <span class="label">XP:</span>
+                    <span id="xp">0</span>/<span id="xp-needed">500</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Rutas:</span>
+                    <span id="routes-completed">0</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="controls">
+                <button id="get-location" class="btn btn-primary">📍 Obtener Ubicación</button>
+                <button id="generate-route" class="btn btn-secondary" disabled>🗺️ Generar Ruta</button>
+                <button id="start-walk" class="btn btn-success" disabled>🚶‍♂️ Comenzar Caminata</button>
+                <button id="complete-route" class="btn btn-warning" disabled>✅ Completar Ruta</button>
+                <button id="toggle-debug" class="btn btn-debug">🐛 Debug</button>
+            </div>
+
+            <div class="status" id="status">
+                Presiona "Obtener Ubicación" para comenzar tu aventura
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">
+                    Progreso: <span id="progress-percentage">0</span>%
+                </div>
+            </div>
+
+            <div class="debug-container" id="debug-container" style="display: none;">
+                <div class="debug-header">
+                    <h3>🐛 Panel de Debug</h3>
+                    <button id="clear-debug" class="btn-small">🗑️ Limpiar</button>
+                </div>
+                <div class="debug-panel" id="debug-panel"></div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="achievements">
+                <h3>🏆 Logros Recientes</h3>
+                <div id="achievements-list">
+                    <p>¡Comienza tu primera caminata para desbloquear logros!</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

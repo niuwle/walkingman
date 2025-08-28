@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test - Fog of Walk</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-info { background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .warning { background: #fff3e0; border-left: 4px solid #ff9800; }
+        .success { background: #e8f5e9; border-left: 4px solid #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>🐛 Debug Test for Fog of Walk</h1>
+    
+    <div class="test-info">
+        <h3>✅ Debug Features Added:</h3>
+        <ul>
+            <li>🐛 Debug button in controls</li>
+            <li>📱 Device and browser information logging</li>
+            <li>🔒 Protocol and security checks (HTTP vs HTTPS)</li>
+            <li>🔐 Permission status verification</li>
+            <li>📍 Detailed geolocation error codes and messages</li>
+            <li>💡 Automatic troubleshooting suggestions</li>
+            <li>⏰ Timestamped debug entries</li>
+            <li>🗑️ Clear debug log functionality</li>
+        </ul>
+    </div>
+
+    <div class="test-info warning">
+        <h3>⚠️ Common Mobile Location Issues:</h3>
+        <ul>
+            <li><strong>HTTPS Required:</strong> Most mobile browsers require HTTPS for geolocation</li>
+            <li><strong>Permission Denied:</strong> User must explicitly allow location access</li>
+            <li><strong>GPS Disabled:</strong> Device location services must be enabled</li>
+            <li><strong>Indoor Location:</strong> GPS works better outdoors</li>
+            <li><strong>Browser Compatibility:</strong> Some browsers have stricter policies</li>
+        </ul>
+    </div>
+
+    <div class="test-info success">
+        <h3>🔧 How to Use the Debug Panel:</h3>
+        <ol>
+            <li>Open <code>index.html</code> on your mobile device</li>
+            <li>Click the "🐛 Debug" button to show the debug panel</li>
+            <li>Click "📍 Obtener Ubicación" to test location access</li>
+            <li>Check the debug panel for detailed error information</li>
+            <li>Follow the suggested solutions in the debug log</li>
+        </ol>
+    </div>
+
+    <div class="test-info">
+        <h3>📋 Debug Information Includes:</h3>
+        <ul>
+            <li><strong>User Agent:</strong> Browser and device information</li>
+            <li><strong>Protocol:</strong> HTTP vs HTTPS detection</li>
+            <li><strong>Host:</strong> Domain/IP information</li>
+            <li><strong>Permission Status:</strong> Geolocation permission state</li>
+            <li><strong>Error Codes:</strong> Specific geolocation error details</li>
+            <li><strong>Coordinates:</strong> Latitude, longitude, and accuracy when successful</li>
+            <li><strong>Troubleshooting:</strong> Automatic suggestions based on detected issues</li>
+        </ul>
+    </div>
+
+    <script>
+        // Simple test to verify current environment
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🐛 Debug Test Environment Check:');
+            console.log('Protocol:', window.location.protocol);
+            console.log('Host:', window.location.host);
+            console.log('Geolocation available:', 'geolocation' in navigator);
+            console.log('User Agent:', navigator.userAgent);
+            
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                console.warn('⚠️ WARNING: Using HTTP instead of HTTPS - this may cause geolocation issues on mobile!');
+            }
+        });
+    </script>
+</body>
+</html>

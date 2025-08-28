@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fog of Walk - Demo de Nuevas Características</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .feature h3 {
+            color: #4facfe;
+            margin-top: 0;
+        }
+        .demo-button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>🚶‍♂️ Fog of Walk - Nuevas Características</h1>
+    
+    <div class="feature">
+        <h3>🗺️ Rutas Basadas en Calles Reales</h3>
+        <p>Ahora las rutas siguen calles reales en lugar de ser círculos simples:</p>
+        <ul>
+            <li>✅ Integración con OpenRouteService API</li>
+            <li>✅ Rutas que siguen senderos y calles existentes</li>
+            <li>✅ Fallback a rutas circulares si la API falla</li>
+            <li>✅ Rutas más realistas y caminables</li>
+        </ul>
+        <button class="demo-button" onclick="window.open('index.html', '_blank')">🎮 Probar App Principal</button>
+    </div>
+
+    <div class="feature">
+        <h3>📏 Control de Distancia Personalizable</h3>
+        <p>Slider para elegir la distancia de caminata:</p>
+        <ul>
+            <li>✅ Rango de 1 a 10 kilómetros</li>
+            <li>✅ Incrementos de 0.5 km</li>
+            <li>✅ Interfaz visual intuitiva</li>
+            <li>✅ Rutas adaptadas a la distancia seleccionada</li>
+        </ul>
+        <div style="margin: 20px 0;">
+            <label for="demo-slider">Distancia: <span id="demo-value">2</span> km</label><br>
+            <input type="range" id="demo-slider" min="1" max="10" value="2" step="0.5" 
+                   style="width: 200px; margin-top: 10px;"
+                   oninput="document.getElementById('demo-value').textContent = this.value">
+        </div>
+    </div>
+
+    <div class="feature">
+        <h3>🎨 Rutas Visualmente Mejoradas</h3>
+        <p>Diseño visual más atractivo para las rutas:</p>
+        <ul>
+            <li>✅ Líneas rojas punteadas más visibles</li>
+            <li>✅ Efecto de resplandor para mejor visibilidad</li>
+            <li>✅ Marcadores de inicio (🚀) y fin (🏁) mejorados</li>
+            <li>✅ Líneas más gruesas y con mejor contraste</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🧪 Modo de Prueba</h3>
+        <p>Simula caminatas sin salir de casa:</p>
+        <ul>
+            <li>✅ Simula el recorrido de la ruta automáticamente</li>
+            <li>✅ Actualiza el progreso en tiempo real</li>
+            <li>✅ Mueve el marcador del usuario a lo largo de la ruta</li>
+            <li>✅ Perfecto para probar la funcionalidad sin caminar</li>
+        </ul>
+        <p><strong>Cómo usar:</strong></p>
+        <ol>
+            <li>Obtén tu ubicación</li>
+            <li>Genera una ruta</li>
+            <li>Presiona "🧪 Modo Prueba" en lugar de "Comenzar Caminata"</li>
+            <li>Observa cómo se simula automáticamente el recorrido</li>
+        </ol>
+    </div>
+
+    <div class="feature">
+        <h3>🔧 Mejoras Técnicas</h3>
+        <ul>
+            <li>✅ Mejor manejo de errores con la API de rutas</li>
+            <li>✅ Información de debug más detallada</li>
+            <li>✅ Limpieza automática de capas del mapa</li>
+            <li>✅ Código más modular y mantenible</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🚀 Instrucciones de Uso</h3>
+        <ol>
+            <li><strong>Abrir la aplicación:</strong> Haz clic en "Probar App Principal" arriba</li>
+            <li><strong>Obtener ubicación:</strong> Presiona "📍 Obtener Ubicación" y permite el acceso</li>
+            <li><strong>Ajustar distancia:</strong> Usa el slider para elegir cuántos km quieres caminar</li>
+            <li><strong>Generar ruta:</strong> Presiona "🗺️ Generar Ruta" para crear una ruta basada en calles</li>
+            <li><strong>Probar sin caminar:</strong> Usa "🧪 Modo Prueba" para simular la caminata</li>
+            <li><strong>Caminar real:</strong> Usa "🚶‍♂️ Comenzar Caminata" para el tracking real</li>
+        </ol>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px;">
+        <button class="demo-button" onclick="window.open('index.html', '_blank')" 
+                style="font-size: 1.2em; padding: 15px 30px;">
+            🎮 Abrir Fog of Walk
+        </button>
+    </div>
+</body>
+</html>

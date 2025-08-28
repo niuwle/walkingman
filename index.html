@@ -30,9 +30,14 @@
         <main class="main-content">
             <div class="controls">
                 <button id="get-location" class="btn btn-primary">📍 Obtener Ubicación</button>
+                <div class="distance-control">
+                    <label for="distance-slider">Distancia: <span id="distance-value">2</span> km</label>
+                    <input type="range" id="distance-slider" min="1" max="10" value="2" step="0.5">
+                </div>
                 <button id="generate-route" class="btn btn-secondary" disabled>🗺️ Generar Ruta</button>
                 <button id="start-walk" class="btn btn-success" disabled>🚶‍♂️ Comenzar Caminata</button>
                 <button id="complete-route" class="btn btn-warning" disabled>✅ Completar Ruta</button>
+                <button id="test-mode" class="btn btn-test" disabled>🧪 Modo Prueba</button>
                 <button id="toggle-debug" class="btn btn-debug">🐛 Debug</button>
             </div>
 

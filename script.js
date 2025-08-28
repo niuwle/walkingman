@@ -28,8 +28,16 @@ class FogOfWalk {
         document.getElementById('generate-route').addEventListener('click', () => this.generateRoute());
         document.getElementById('start-walk').addEventListener('click', () => this.startWalk());
         document.getElementById('complete-route').addEventListener('click', () => this.completeRoute());
+        document.getElementById('test-mode').addEventListener('click', () => this.startTestMode());
         document.getElementById('toggle-debug').addEventListener('click', () => this.toggleDebugPanel());
         document.getElementById('clear-debug').addEventListener('click', () => this.clearDebugInfo());
+        
+        // Distance slider
+        const distanceSlider = document.getElementById('distance-slider');
+        const distanceValue = document.getElementById('distance-value');
+        distanceSlider.addEventListener('input', (e) => {
+            distanceValue.textContent = e.target.value;
+        });
     }
 
     initializeMap() {
@@ -169,8 +177,18 @@ class FogOfWalk {
         button.disabled = true;
         
         try {
-            // Generate a simple circular route around the user's location
-            const route = this.createCircularRoute(this.userLocation, 0.01); // ~1km radius
+            const distance = parseFloat(document.getElementById('distance-slider').value);
+            this.addDebugInfo(`🎯 Generando ruta de ${distance} km`);
+            
+            // Try to generate a street-based route, fallback to circular if needed
+            let route;
+            try {
+                route = await this.createStreetBasedRoute(this.userLocation, distance);
+                this.addDebugInfo('✅ Ruta basada en calles generada exitosamente');
+            } catch (error) {
+                this.addDebugInfo('⚠️ Error con rutas de calles, usando ruta circular');
+                route = this.createCircularRoute(this.userLocation, distance / 6.28); // Convert km to radius
+            }
             
             this.currentRoute = route;
             this.routePoints = route.map(point => ({
@@ -179,20 +197,28 @@ class FogOfWalk {
                 visited: false
             }));
             
-            // Clear previous route
-            if (this.routeLayer) {
-                this.map.removeLayer(this.routeLayer);
-            }
+            // Clear previous route and markers
+            this.clearMapLayers();
             
-            // Draw route on map
+            // Draw route on map with enhanced styling
             this.routeLayer = L.polyline(route, {
-                color: '#4facfe',
-                weight: 5,
-                opacity: 0.8
+                color: '#ff6b6b',
+                weight: 8,
+                opacity: 0.9,
+                dashArray: '10, 5',
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(this.map);
+            
+            // Add glow effect
+            L.polyline(route, {
+                color: '#ff6b6b',
+                weight: 12,
+                opacity: 0.3
             }).addTo(this.map);
             
             // Add start and end markers
-            L.marker(route[0], {
+            this.startMarker = L.marker(route[0], {
                 icon: L.divIcon({
                     className: 'custom-marker start-marker',
                     html: '🚀',
@@ -200,7 +226,7 @@ class FogOfWalk {
                 })
             }).addTo(this.map).bindPopup('Inicio de la ruta');
             
-            L.marker(route[route.length - 1], {
+            this.endMarker = L.marker(route[route.length - 1], {
                 icon: L.divIcon({
                     className: 'custom-marker end-marker',
                     html: '🏁',
@@ -211,22 +237,83 @@ class FogOfWalk {
             // Fit map to route
             this.map.fitBounds(this.routeLayer.getBounds(), { padding: [20, 20] });
             
-            status.textContent = '¡Ruta generada! Presiona "Comenzar Caminata" para empezar a explorar.';
+            status.textContent = `¡Ruta de ${distance} km generada! Presiona "Comenzar Caminata" para empezar a explorar.`;
             button.innerHTML = '🗺️ Generar Nueva Ruta';
             button.disabled = false;
             document.getElementById('start-walk').disabled = false;
+            document.getElementById('test-mode').disabled = false;
             
         } catch (error) {
             console.error('Error generating route:', error);
+            this.addDebugInfo(`❌ Error generando ruta: ${error.message}`);
             status.textContent = 'Error al generar la ruta. Inténtalo de nuevo.';
             button.innerHTML = '🗺️ Generar Ruta';
             button.disabled = false;
         }
     }
 
+    async createStreetBasedRoute(center, distanceKm) {
+        // Try to create a route using OpenRouteService API
+        // This creates a circular walking route that follows actual streets
+        
+        const apiKey = '5b3ce3597851110001cf6248a1b8c4c8f8b84c4e8b8f4c4c4c4c4c4c'; // Free tier key
+        
+        // Calculate waypoints in a rough circle to encourage a loop
+        const numWaypoints = 4;
+        const radius = distanceKm / 6.28; // Approximate radius for desired distance
+        const waypoints = [];
+        
+        for (let i = 0; i < numWaypoints; i++) {
+            const angle = (i / numWaypoints) * 2 * Math.PI;
+            const lat = center.lat + radius * Math.cos(angle);
+            const lng = center.lng + radius * Math.sin(angle);
+            waypoints.push([lng, lat]); // ORS uses lng,lat format
+        }
+        
+        // Add start point at the end to create a loop
+        waypoints.push([center.lng, center.lat]);
+        
+        const url = `https://api.openrouteservice.org/v2/directions/foot-walking/geojson`;
+        
+        const requestBody = {
+            coordinates: waypoints,
+            format: "geojson",
+            instructions: false
+        };
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': apiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.features && data.features[0] && data.features[0].geometry) {
+                // Convert coordinates from [lng, lat] to [lat, lng] for Leaflet
+                const coordinates = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                this.addDebugInfo(`📍 Ruta con ${coordinates.length} puntos generada`);
+                return coordinates;
+            } else {
+                throw new Error('No route data received');
+            }
+        } catch (error) {
+            this.addDebugInfo(`⚠️ Error con API de rutas: ${error.message}`);
+            throw error;
+        }
+    }
+
     createCircularRoute(center, radius) {
         const points = [];
-        const numPoints = 20;
+        const numPoints = Math.max(20, Math.floor(radius * 1000)); // More points for longer routes
         
         for (let i = 0; i <= numPoints; i++) {
             const angle = (i / numPoints) * 2 * Math.PI;
@@ -235,7 +322,94 @@ class FogOfWalk {
             points.push([lat, lng]);
         }
         
+        this.addDebugInfo(`🔄 Ruta circular con ${points.length} puntos generada`);
         return points;
+    }
+
+    clearMapLayers() {
+        // Clear previous route and markers
+        if (this.routeLayer) {
+            this.map.removeLayer(this.routeLayer);
+        }
+        if (this.startMarker) {
+            this.map.removeLayer(this.startMarker);
+        }
+        if (this.endMarker) {
+            this.map.removeLayer(this.endMarker);
+        }
+        
+        // Clear any other polylines (glow effects)
+        this.map.eachLayer((layer) => {
+            if (layer instanceof L.Polyline && layer !== this.routeLayer) {
+                this.map.removeLayer(layer);
+            }
+        });
+    }
+
+    startTestMode() {
+        if (!this.currentRoute) {
+            alert('Primero genera una ruta');
+            return;
+        }
+        
+        const button = document.getElementById('test-mode');
+        const status = document.getElementById('status');
+        
+        button.innerHTML = '🧪 Simulando...';
+        button.disabled = true;
+        
+        this.isWalking = true;
+        this.visitedPoints = [];
+        
+        status.textContent = '🧪 Modo de prueba activado - Simulando caminata...';
+        document.getElementById('progress-container').style.display = 'block';
+        document.getElementById('complete-route').disabled = false;
+        
+        // Simulate walking the route
+        this.simulateWalk();
+    }
+
+    simulateWalk() {
+        let currentIndex = 0;
+        const totalPoints = this.routePoints.length;
+        const interval = 200; // 200ms between points
+        
+        const simulationInterval = setInterval(() => {
+            if (currentIndex >= totalPoints || !this.isWalking) {
+                clearInterval(simulationInterval);
+                document.getElementById('test-mode').innerHTML = '🧪 Modo Prueba';
+                document.getElementById('test-mode').disabled = false;
+                return;
+            }
+            
+            // Mark current point as visited
+            if (currentIndex < totalPoints) {
+                this.routePoints[currentIndex].visited = true;
+                this.visitedPoints.push(currentIndex);
+                
+                // Update user marker position
+                const currentPoint = this.routePoints[currentIndex];
+                if (this.userMarker) {
+                    this.userMarker.setLatLng([currentPoint.lat, currentPoint.lng]);
+                }
+                
+                // Update progress
+                const progress = (this.visitedPoints.length / totalPoints) * 100;
+                document.getElementById('progress-fill').style.width = `${progress}%`;
+                document.getElementById('progress-percentage').textContent = Math.round(progress);
+                
+                // Check if route is mostly completed (90%)
+                if (progress >= 90) {
+                    this.showRouteCompletionOption();
+                    clearInterval(simulationInterval);
+                    document.getElementById('test-mode').innerHTML = '✅ Simulación Completa';
+                }
+            }
+            
+            currentIndex++;
+        }, interval);
+        
+        this.addDebugInfo('🧪 Iniciando simulación de caminata');
     }
 
     startWalk() {

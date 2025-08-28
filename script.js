@@ -16,7 +16,7 @@ class FogOfWalk {
         
         // Zone exploration system
         this.explorationZone = null;
-        this.zoneRadius = 2.5; // 5km square = 2.5km radius
+        this.zoneRadius = 0.25; // 0.5km square = 0.25km radius
         this.allStreets = [];
         this.exploredStreets = [];
         this.currentRouteStreets = [];
@@ -35,7 +35,6 @@ class FogOfWalk {
         document.getElementById('get-location').addEventListener('click', () => this.getUserLocation());
         document.getElementById('generate-route').addEventListener('click', () => this.generateRoute());
         document.getElementById('start-walk').addEventListener('click', () => this.startWalk());
-        document.getElementById('complete-route').addEventListener('click', () => this.completeRoute());
         document.getElementById('test-mode').addEventListener('click', () => this.startTestMode());
         document.getElementById('toggle-debug').addEventListener('click', () => this.toggleDebugPanel());
         document.getElementById('clear-debug').addEventListener('click', () => this.clearDebugInfo());
@@ -308,29 +307,102 @@ class FogOfWalk {
         const selectedStreets = [];
         let totalDistance = 0;
         const targetDistanceM = targetDistanceKm * 1000;
+        const usedStreetIds = new Set();
         
         // Start with a street near the user
         let currentStreet = this.findNearestStreet(availableStreets, this.userLocation);
         if (!currentStreet) return [];
         
         selectedStreets.push(currentStreet);
+        usedStreetIds.add(currentStreet.id);
         totalDistance += this.calculateStreetLength(currentStreet);
         
-        // Keep adding connected streets until we reach target distance
+        let currentPosition = this.getStreetCenter(currentStreet);
+        let spiralAngle = 0;
+        const spiralIncrement = Math.PI / 4; // 45 degrees per step
+        
+        // Create a spiral/circular route that makes walking sense
         while (totalDistance < targetDistanceM && selectedStreets.length < availableStreets.length) {
-            const nextStreet = this.findConnectedStreet(availableStreets, currentStreet, selectedStreets);
-            if (!nextStreet) break;
+            // Find next street in a spiral pattern
+            const nextStreet = this.findNextStreetInSpiral(
+                availableStreets, 
+                currentPosition, 
+                spiralAngle,
+                usedStreetIds
+            );
             
-            selectedStreets.push(nextStreet);
-            totalDistance += this.calculateStreetLength(nextStreet);
-            currentStreet = nextStreet;
+            if (!nextStreet) {
+                // If no street found in spiral, find closest unused street
+                const fallbackStreet = this.findClosestUnusedStreet(
+                    availableStreets, 
+                    currentPosition, 
+                    usedStreetIds
+                );
+                if (!fallbackStreet) break;
+                selectedStreets.push(fallbackStreet);
+                usedStreetIds.add(fallbackStreet.id);
+                totalDistance += this.calculateStreetLength(fallbackStreet);
+                currentPosition = this.getStreetCenter(fallbackStreet);
+            } else {
+                selectedStreets.push(nextStreet);
+                usedStreetIds.add(nextStreet.id);
+                totalDistance += this.calculateStreetLength(nextStreet);
+                currentPosition = this.getStreetCenter(nextStreet);
+                spiralAngle += spiralIncrement;
+            }
             
             // Stop if we're close to target distance
             if (totalDistance >= targetDistanceM * 0.8) break;
         }
         
-        this.addDebugInfo(`📏 Distancia total: ${(totalDistance / 1000).toFixed(2)}km`);
+        this.addDebugInfo(`📏 TOTAL DISTANCE: ${(totalDistance / 1000).toFixed(2)}KM`);
+        this.addDebugInfo(`🌀 SPIRAL ROUTE WITH ${selectedStreets.length} STREETS`);
         return selectedStreets;
+    }
+
+    findNextStreetInSpiral(availableStreets, currentPosition, angle, usedStreetIds) {
+        const spiralRadius = 0.1; // 100m radius for spiral search
+        const targetLat = currentPosition.lat + (spiralRadius / 111) * Math.cos(angle);
+        const targetLng = currentPosition.lng + (spiralRadius / (111 * Math.cos(currentPosition.lat * Math.PI / 180))) * Math.sin(angle);
+        
+        let bestStreet = null;
+        let minDistance = Infinity;
+        
+        availableStreets.forEach(street => {
+            if (usedStreetIds.has(street.id)) return;
+            
+            const streetCenter = this.getStreetCenter(street);
+            const distance = this.calculateDistance(
+                { lat: targetLat, lng: targetLng },
+                streetCenter
+            );
+            
+            if (distance < minDistance && distance < 0.2) { // Within 200m
+                minDistance = distance;
+                bestStreet = street;
+            }
+        });
+        
+        return bestStreet;
+    }
+
+    findClosestUnusedStreet(availableStreets, currentPosition, usedStreetIds) {
+        let bestStreet = null;
+        let minDistance = Infinity;
+        
+        availableStreets.forEach(street => {
+            if (usedStreetIds.has(street.id)) return;
+            
+            const streetCenter = this.getStreetCenter(street);
+            const distance = this.calculateDistance(currentPosition, streetCenter);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestStreet = street;
+            }
+        });
+        
+        return bestStreet;
     }
 
     findNearestStreet(streets, location) {
@@ -878,9 +950,8 @@ class FogOfWalk {
         this.isWalking = true;
         this.visitedPoints = [];
         
-        status.textContent = '🧪 Modo de prueba activado - Simulando caminata...';
+        status.textContent = '🔬 TACTICAL SIMULATION ACTIVE - RUNNING MISSION...';
         document.getElementById('progress-container').style.display = 'block';
-        document.getElementById('complete-route').disabled = false;
         
         // Simulate walking the route
         this.simulateWalk();
@@ -917,9 +988,9 @@ class FogOfWalk {
                 
                 // Check if route is mostly completed (90%)
                 if (progress >= 90) {
-                    this.showRouteCompletionOption();
+                    this.autoCompleteRoute();
                     clearInterval(simulationInterval);
-                    document.getElementById('test-mode').innerHTML = '✅ Simulación Completa';
+                    document.getElementById('test-mode').innerHTML = '✅ SIMULATION COMPLETE';
                 }
             }
             
@@ -937,11 +1008,10 @@ class FogOfWalk {
         this.isWalking = true;
         this.visitedPoints = [];
         
-        button.innerHTML = '🚶‍♂️ Caminando...';
+        button.innerHTML = '🎯 OPERATIVE DEPLOYED';
         button.disabled = true;
-        status.textContent = '¡Caminata iniciada! Sigue la ruta azul en el mapa.';
+        status.textContent = 'MISSION ACTIVE! FOLLOW THE YELLOW TACTICAL ROUTE.';
         progressContainer.style.display = 'block';
-        document.getElementById('complete-route').disabled = false;
         
         // Start tracking user location
         this.startLocationTracking();
@@ -1000,7 +1070,7 @@ class FogOfWalk {
         
         // Check if route is mostly completed (90%)
         if (progress >= 90) {
-            this.showRouteCompletionOption();
+            this.autoCompleteRoute();
         }
     }
 
@@ -1019,10 +1089,14 @@ class FogOfWalk {
         return R * c / 1000; // Convert to km, then compare with threshold
     }
 
-    showRouteCompletionOption() {
+    autoCompleteRoute() {
         const status = document.getElementById('status');
-        status.textContent = '¡Excelente! Has completado la mayor parte de la ruta. ¡Puedes marcarla como completada!';
-        document.getElementById('complete-route').style.background = 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)';
+        status.textContent = 'MISSION 90% COMPLETE - AUTO-COMPLETING...';
+        
+        // Auto-complete after a short delay
+        setTimeout(() => {
+            this.completeRoute();
+        }, 2000);
     }
 
     completeRoute() {
@@ -1101,9 +1175,8 @@ class FogOfWalk {
         this.currentRouteStreets = [];
         
         // Reset buttons
-        document.getElementById('start-walk').innerHTML = '🚶‍♂️ Comenzar Caminata';
+        document.getElementById('start-walk').innerHTML = '🎯 DEPLOY OPERATIVE';
         document.getElementById('start-walk').disabled = true;
-        document.getElementById('complete-route').disabled = true;
         document.getElementById('progress-container').style.display = 'none';
         document.getElementById('generate-route').disabled = false;
         
@@ -1129,8 +1202,8 @@ class FogOfWalk {
 
     expandExplorationZone() {
         // Expand the zone when current zone is mostly completed
-        this.zoneRadius *= 1.5; // Increase zone size by 50%
-        this.addDebugInfo(`🔄 Expandiendo zona a ${this.zoneRadius.toFixed(1)}km de radio`);
+        this.zoneRadius += 0.25; // Increase zone size by 0.5km (0.25km radius)
+        this.addDebugInfo(`🔄 ZONE EXPANDED TO ${(this.zoneRadius * 2).toFixed(1)}KM SQUARE`);
         
         // Reset zone completion flag
         this.gameState.zoneCompleted = false;

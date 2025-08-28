@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOG OF WALK v2.1.0 - Tactical UI Demo</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #00ff41;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+        }
+        .demo-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .demo-title {
+            font-size: 3rem;
+            color: #00ff41;
+            text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+        .demo-subtitle {
+            color: #ff6b35;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+        }
+        .version-display {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            display: inline-block;
+            box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .feature-card h3 {
+            color: #ff6b35;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .feature-list li::before {
+            content: '▶';
+            position: absolute;
+            left: 0;
+            color: #00ff41;
+        }
+        .ui-preview {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .ui-preview h4 {
+            color: #ff6b35;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+        .button-demo {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .demo-btn {
+            padding: 12px 20px;
+            border: 2px solid;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        .demo-btn-primary {
+            background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%);
+            color: #000;
+            border-color: #00ff41;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+        }
+        .demo-btn-secondary {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #000;
+            border-color: #ff6b35;
+            box-shadow: 0 0 15px rgba(255, 107, 53, 0.3);
+        }
+        .demo-btn-success {
+            background: linear-gradient(135deg, #00ccff 0%, #0099cc 100%);
+            color: #000;
+            border-color: #00ccff;
+            box-shadow: 0 0 15px rgba(0, 204, 255, 0.3);
+        }
+        .demo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 30px currentColor;
+        }
+        .color-palette {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .color-item {
+            text-align: center;
+        }
+        .color-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 2px solid #333;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .color-primary { background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%); }
+        .color-secondary { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        .color-accent { background: linear-gradient(135deg, #00ccff 0%, #0099cc 100%); }
+        .color-warning { background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%); }
+        .color-dark { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); }
+        .launch-section {
+            text-align: center;
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.1) 0%, rgba(255, 107, 53, 0.1) 100%);
+            border-radius: 15px;
+            border: 2px solid #333;
+        }
+        .launch-btn {
+            background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%);
+            color: #000;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+        .launch-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 40px rgba(0, 255, 65, 0.6);
+        }
+        .stats-demo {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat-demo {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            text-align: center;
+            min-width: 100px;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+        .stat-value-demo {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #00ff41;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <div class="demo-title">⚡ FOG OF WALK</div>
+            <div class="demo-subtitle">TACTICAL EXPLORATION SYSTEM</div>
+            <div class="version-display">v2.1.0</div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🎨 TACTICAL UI DESIGN</h3>
+                <ul class="feature-list">
+                    <li>Military-inspired metallic interface</li>
+                    <li>Monospace fonts for tactical feel</li>
+                    <li>Green terminal-style text</li>
+                    <li>Metallic gradients and shadows</li>
+                    <li>Scan line effects</li>
+                    <li>Tactical orange accents</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>⚡ ENHANCED TERMINOLOGY</h3>
+                <ul class="feature-list">
+                    <li>"ACQUIRE GPS LOCK" instead of get location</li>
+                    <li>"GENERATE MISSION" for route creation</li>
+                    <li>"DEPLOY OPERATIVE" to start walking</li>
+                    <li>"TACTICAL SIM" for test mode</li>
+                    <li>"RANK" instead of level</li>
+                    <li>"MISSIONS" instead of routes</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>🔧 VERSION TRACKING</h3>
+                <ul class="feature-list">
+                    <li>Version badge in header (v2.1.0)</li>
+                    <li>Prominent orange styling</li>
+                    <li>Semantic versioning</li>
+                    <li>Easy to update and track</li>
+                    <li>Professional appearance</li>
+                    <li>Clear version identification</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>🎯 MASCULINE APPEAL</h3>
+                <ul class="feature-list">
+                    <li>Dark, rugged color scheme</li>
+                    <li>Military/tactical aesthetics</li>
+                    <li>Outdoor gear inspiration</li>
+                    <li>Technical, professional look</li>
+                    <li>Bold, confident typography</li>
+                    <li>Gear-head friendly interface</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="ui-preview">
+            <h4>BUTTON STYLES PREVIEW</h4>
+            <div class="button-demo">
+                <button class="demo-btn demo-btn-primary">📡 ACQUIRE GPS LOCK</button>
+                <button class="demo-btn demo-btn-secondary">⚡ GENERATE MISSION</button>
+                <button class="demo-btn demo-btn-success">🎯 DEPLOY OPERATIVE</button>
+            </div>
+        </div>
+
+        <div class="ui-preview">
+            <h4>TACTICAL STATS DISPLAY</h4>
+            <div class="stats-demo">
+                <div class="stat-demo">
+                    <div class="stat-label">RANK</div>
+                    <div class="stat-value-demo">5</div>
+                </div>
+                <div class="stat-demo">
+                    <div class="stat-label">XP</div>
+                    <div class="stat-value-demo">1250</div>
+                </div>
+                <div class="stat-demo">
+                    <div class="stat-label">MISSIONS</div>
+                    <div class="stat-value-demo">12</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ui-preview">
+            <h4>COLOR PALETTE</h4>
+            <div class="color-palette">
+                <div class="color-item">
+                    <div class="color-box color-primary"></div>
+                    <div>Primary Green</div>
+                </div>
+                <div class="color-item">
+                    <div class="color-box color-secondary"></div>
+                    <div>Tactical Orange</div>
+                </div>
+                <div class="color-item">
+                    <div class="color-box color-accent"></div>
+                    <div>Tech Blue</div>
+                </div>
+                <div class="color-item">
+                    <div class="color-box color-warning"></div>
+                    <div>Alert Yellow</div>
+                </div>
+                <div class="color-item">
+                    <div class="color-box color-dark"></div>
+                    <div>Metallic Dark</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🎮 KEY FEATURES</h3>
+                <ul class="feature-list">
+                    <li>Zone-based exploration system</li>
+                    <li>Real street network integration</li>
+                    <li>Distance-controlled missions</li>
+                    <li>Progressive zone unlocking</li>
+                    <li>Tactical simulation mode</li>
+                    <li>Persistent exploration progress</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>⚙️ TECHNICAL SPECS</h3>
+                <ul class="feature-list">
+                    <li>OpenStreetMap integration</li>
+                    <li>OSRM routing engine</li>
+                    <li>Overpass API for street data</li>
+                    <li>Local storage persistence</li>
+                    <li>Responsive mobile design</li>
+                    <li>Progressive Web App ready</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="launch-section">
+            <h3 style="color: #ff6b35; margin-bottom: 20px; letter-spacing: 2px;">READY FOR DEPLOYMENT</h3>
+            <p style="margin-bottom: 30px; font-size: 1.1rem;">Experience the new tactical interface and zone-based exploration system</p>
+            <button class="launch-btn" onclick="window.open('index.html', '_blank')">
+                🚀 LAUNCH FOG OF WALK v2.1.0
+            </button>
+        </div>
+    </div>
+</body>
+</html>

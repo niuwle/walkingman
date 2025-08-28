@@ -119,13 +119,13 @@ class FogOfWalk {
                 .bindPopup('Tu ubicación actual')
                 .openPopup();
 
-            status.textContent = '¡Ubicación obtenida! Creando zona de exploración...';
-            button.innerHTML = '✅ Ubicación Obtenida';
+            status.textContent = 'GPS LOCK ACQUIRED! INITIALIZING TACTICAL ZONE...';
+            button.innerHTML = '✅ GPS LOCKED';
             
             // Create exploration zone and fetch streets
             await this.createExplorationZone();
             
-            status.textContent = '¡Zona de exploración creada! Ahora puedes generar una ruta.';
+            status.textContent = 'TACTICAL ZONE ESTABLISHED! READY TO GENERATE MISSION.';
             document.getElementById('generate-route').disabled = false;
             
         } catch (error) {
@@ -251,8 +251,8 @@ class FogOfWalk {
             const exploredCount = this.allStreets.filter(s => s.explored).length;
             const exploredPercentage = Math.round((exploredCount / this.allStreets.length) * 100);
             
-            status.textContent = `¡Ruta de ${distance} km generada! Zona explorada: ${exploredPercentage}%`;
-            button.innerHTML = '🗺️ Generar Nueva Ruta';
+            status.textContent = `MISSION ${distance}KM GENERATED! ZONE EXPLORED: ${exploredPercentage}%`;
+            button.innerHTML = '⚡ GENERATE MISSION';
             button.disabled = false;
             document.getElementById('start-walk').disabled = false;
             document.getElementById('test-mode').disabled = false;

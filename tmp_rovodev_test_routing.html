@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Street Routing</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { height: 400px; width: 100%; margin: 20px 0; }
+        .controls { margin: 20px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test de Rutas Basadas en Calles</h1>
+    
+    <div class="controls">
+        <button onclick="testMadridRoute()">🇪🇸 Test Madrid</button>
+        <button onclick="testBarcelonaRoute()">🏖️ Test Barcelona</button>
+        <button onclick="testNewYorkRoute()">🗽 Test New York</button>
+        <button onclick="clearMap()">🗑️ Limpiar Mapa</button>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="log" id="log">
+        <strong>Log de pruebas:</strong><br>
+        Haz clic en los botones de arriba para probar las rutas...
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map = L.map('map').setView([40.4168, -3.7038], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        let currentRoute = null;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearMap() {
+            if (currentRoute) {
+                map.removeLayer(currentRoute);
+                currentRoute = null;
+            }
+            log('🗑️ Mapa limpiado');
+        }
+        
+        async function testOSRMRoute(center, distanceKm, cityName) {
+            log(`🔍 Probando ruta en ${cityName} (${distanceKm}km)...`);
+            
+            try {
+                const radius = distanceKm / 8;
+                const waypoints = [
+                    [center.lng, center.lat], // Start
+                    [center.lng + radius, center.lat], // East
+                    [center.lng + radius, center.lat + radius], // Northeast
+                    [center.lng, center.lat + radius], // North
+                    [center.lng - radius, center.lat + radius], // Northwest
+                    [center.lng - radius, center.lat], // West
+                    [center.lng - radius, center.lat - radius], // Southwest
+                    [center.lng, center.lat - radius], // South
+                    [center.lng + radius, center.lat - radius], // Southeast
+                    [center.lng, center.lat] // Back to start
+                ];
+                
+                const coordinatesString = waypoints.map(w => `${w[0]},${w[1]}`).join(';');
+                const url = `https://router.project-osrm.org/route/v1/walking/${coordinatesString}?overview=full&geometries=geojson`;
+                
+                log(`📡 Llamando a OSRM API...`);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log(`📦 Respuesta recibida: ${JSON.stringify(data).substring(0, 100)}...`);
+                
+                if (data.routes && data.routes[0] && data.routes[0].geometry) {
+                    const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    log(`✅ Ruta generada con ${coordinates.length} puntos`);
+                    log(`📏 Distancia real: ${(data.routes[0].distance / 1000).toFixed(2)}km`);
+                    log(`⏱️ Tiempo estimado: ${Math.round(data.routes[0].duration / 60)} minutos`);
+                    
+                    // Draw route on map
+                    clearMap();
+                    currentRoute = L.polyline(coordinates, {
+                        color: '#ff6b6b',
+                        weight: 6,
+                        opacity: 0.8,
+                        dashArray: '10, 5'
+                    }).addTo(map);
+                    
+                    // Add markers
+                    L.marker(coordinates[0]).addTo(map).bindPopup('🚀 Inicio');
+                    L.marker(coordinates[coordinates.length - 1]).addTo(map).bindPopup('🏁 Fin');
+                    
+                    // Fit map to route
+                    map.fitBounds(currentRoute.getBounds(), { padding: [20, 20] });
+                    
+                    log(`🎯 ¡Ruta dibujada en el mapa!`);
+                    return true;
+                } else {
+                    throw new Error('No route data in response');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                return false;
+            }
+        }
+        
+        async function testMadridRoute() {
+            map.setView([40.4168, -3.7038], 13);
+            await testOSRMRoute({lat: 40.4168, lng: -3.7038}, 2, 'Madrid');
+        }
+        
+        async function testBarcelonaRoute() {
+            map.setView([41.3851, 2.1734], 13);
+            await testOSRMRoute({lat: 41.3851, lng: 2.1734}, 3, 'Barcelona');
+        }
+        
+        async function testNewYorkRoute() {
+            map.setView([40.7128, -74.0060], 13);
+            await testOSRMRoute({lat: 40.7128, lng: -74.0060}, 2.5, 'New York');
+        }
+        
+        log('🚀 Test de rutas iniciado. Haz clic en los botones para probar diferentes ciudades.');
+    </script>
+</body>
+</html>

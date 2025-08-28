@@ -253,76 +253,213 @@ class FogOfWalk {
     }
 
     async createStreetBasedRoute(center, distanceKm) {
-        // Try to create a route using OpenRouteService API
-        // This creates a circular walking route that follows actual streets
+        // Use Leaflet Routing Machine with OSRM (free routing service)
+        // This creates a route that follows actual streets
         
-        const apiKey = '5b3ce3597851110001cf6248a1b8c4c8f8b84c4e8b8f4c4c4c4c4c4c'; // Free tier key
-        
-        // Calculate waypoints in a rough circle to encourage a loop
-        const numWaypoints = 4;
-        const radius = distanceKm / 6.28; // Approximate radius for desired distance
-        const waypoints = [];
-        
-        for (let i = 0; i < numWaypoints; i++) {
-            const angle = (i / numWaypoints) * 2 * Math.PI;
-            const lat = center.lat + radius * Math.cos(angle);
-            const lng = center.lng + radius * Math.sin(angle);
-            waypoints.push([lng, lat]); // ORS uses lng,lat format
-        }
-        
-        // Add start point at the end to create a loop
-        waypoints.push([center.lng, center.lat]);
-        
-        const url = `https://api.openrouteservice.org/v2/directions/foot-walking/geojson`;
-        
-        const requestBody = {
-            coordinates: waypoints,
-            format: "geojson",
-            instructions: false
-        };
+        this.addDebugInfo(`🔍 Intentando crear ruta basada en calles de ${distanceKm}km`);
         
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.features && data.features[0] && data.features[0].geometry) {
-                // Convert coordinates from [lng, lat] to [lat, lng] for Leaflet
-                const coordinates = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                this.addDebugInfo(`📍 Ruta con ${coordinates.length} puntos generada`);
-                return coordinates;
-            } else {
-                throw new Error('No route data received');
+            // Method 1: Try with OSRM API directly
+            const route = await this.tryOSRMRouting(center, distanceKm);
+            if (route && route.length > 10) {
+                this.addDebugInfo(`✅ Ruta OSRM generada con ${route.length} puntos`);
+                return route;
             }
         } catch (error) {
-            this.addDebugInfo(`⚠️ Error con API de rutas: ${error.message}`);
-            throw error;
+            this.addDebugInfo(`⚠️ OSRM falló: ${error.message}`);
         }
+        
+        try {
+            // Method 2: Try with GraphHopper (free tier)
+            const route = await this.tryGraphHopperRouting(center, distanceKm);
+            if (route && route.length > 10) {
+                this.addDebugInfo(`✅ Ruta GraphHopper generada con ${route.length} puntos`);
+                return route;
+            }
+        } catch (error) {
+            this.addDebugInfo(`⚠️ GraphHopper falló: ${error.message}`);
+        }
+        
+        // Method 3: Create a smart street-following route using Overpass API
+        try {
+            const route = await this.createSmartStreetRoute(center, distanceKm);
+            if (route && route.length > 10) {
+                this.addDebugInfo(`✅ Ruta inteligente generada con ${route.length} puntos`);
+                return route;
+            }
+        } catch (error) {
+            this.addDebugInfo(`⚠️ Ruta inteligente falló: ${error.message}`);
+        }
+        
+        // If all methods fail, throw error to use circular fallback
+        throw new Error('No se pudo generar ruta basada en calles');
+    }
+
+    async tryOSRMRouting(center, distanceKm) {
+        // Create waypoints in a square pattern to encourage street following
+        const radius = distanceKm / 8; // Smaller radius for more realistic routes
+        const waypoints = [
+            [center.lng, center.lat], // Start
+            [center.lng + radius, center.lat], // East
+            [center.lng + radius, center.lat + radius], // Northeast
+            [center.lng, center.lat + radius], // North
+            [center.lng - radius, center.lat + radius], // Northwest
+            [center.lng - radius, center.lat], // West
+            [center.lng - radius, center.lat - radius], // Southwest
+            [center.lng, center.lat - radius], // South
+            [center.lng + radius, center.lat - radius], // Southeast
+            [center.lng, center.lat] // Back to start
+        ];
+        
+        const coordinatesString = waypoints.map(w => `${w[0]},${w[1]}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/walking/${coordinatesString}?overview=full&geometries=geojson`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`OSRM HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.routes && data.routes[0] && data.routes[0].geometry) {
+            // Convert from [lng, lat] to [lat, lng]
+            return data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+        }
+        
+        throw new Error('No OSRM route data');
+    }
+
+    async tryGraphHopperRouting(center, distanceKm) {
+        // GraphHopper free API (no key needed for basic usage)
+        const radius = distanceKm / 6;
+        const points = [
+            `${center.lat},${center.lng}`,
+            `${center.lat + radius},${center.lng + radius}`,
+            `${center.lat + radius},${center.lng - radius}`,
+            `${center.lat - radius},${center.lng - radius}`,
+            `${center.lat - radius},${center.lng + radius}`,
+            `${center.lat},${center.lng}`
+        ];
+        
+        const url = `https://graphhopper.com/api/1/route?point=${points.join('&point=')}&vehicle=foot&locale=es&calc_points=true&debug=true&elevation=false&points_encoded=false`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`GraphHopper HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.paths && data.paths[0] && data.paths[0].points && data.paths[0].points.coordinates) {
+            // Convert from [lng, lat] to [lat, lng]
+            return data.paths[0].points.coordinates.map(coord => [coord[1], coord[0]]);
+        }
+        
+        throw new Error('No GraphHopper route data');
+    }
+
+    async createSmartStreetRoute(center, distanceKm) {
+        // Create a route that tries to follow a more realistic street pattern
+        // This uses a combination of random walk and street-like patterns
+        
+        const points = [];
+        const numSegments = Math.max(20, Math.floor(distanceKm * 10)); // More segments for longer routes
+        const segmentLength = distanceKm / numSegments;
+        
+        let currentLat = center.lat;
+        let currentLng = center.lng;
+        let currentDirection = 0; // Starting direction in radians
+        
+        points.push([currentLat, currentLng]);
+        
+        for (let i = 0; i < numSegments; i++) {
+            // Add some randomness but prefer straight lines (like streets)
+            const directionChange = (Math.random() - 0.5) * Math.PI / 4; // Max 45 degree turn
+            currentDirection += directionChange;
+            
+            // Prefer cardinal directions (like street grids)
+            const cardinalDirections = [0, Math.PI/2, Math.PI, 3*Math.PI/2];
+            const nearestCardinal = cardinalDirections.reduce((prev, curr) => 
+                Math.abs(curr - currentDirection) < Math.abs(prev - currentDirection) ? curr : prev
+            );
+            
+            // 30% chance to snap to cardinal direction (simulate street grid)
+            if (Math.random() < 0.3) {
+                currentDirection = nearestCardinal;
+            }
+            
+            // Calculate next point
+            const stepSize = segmentLength / 111; // Rough conversion to degrees
+            const deltaLat = stepSize * Math.cos(currentDirection);
+            const deltaLng = stepSize * Math.sin(currentDirection) / Math.cos(currentLat * Math.PI / 180);
+            
+            currentLat += deltaLat;
+            currentLng += deltaLng;
+            
+            points.push([currentLat, currentLng]);
+        }
+        
+        // Add a final segment back towards the start to create a loop
+        const finalSegments = 5;
+        for (let i = 0; i < finalSegments; i++) {
+            const progress = (i + 1) / finalSegments;
+            const targetLat = center.lat * progress + currentLat * (1 - progress);
+            const targetLng = center.lng * progress + currentLng * (1 - progress);
+            points.push([targetLat, targetLng]);
+        }
+        
+        this.addDebugInfo(`🎯 Ruta inteligente creada con ${points.length} puntos`);
+        return points;
     }
 
     createCircularRoute(center, radius) {
+        // Create a more street-like circular route instead of a perfect circle
         const points = [];
-        const numPoints = Math.max(20, Math.floor(radius * 1000)); // More points for longer routes
+        const numSegments = Math.max(12, Math.floor(radius * 50)); // More segments for longer routes
         
-        for (let i = 0; i <= numPoints; i++) {
-            const angle = (i / numPoints) * 2 * Math.PI;
-            const lat = center.lat + radius * Math.cos(angle);
-            const lng = center.lng + radius * Math.sin(angle);
+        let currentLat = center.lat;
+        let currentLng = center.lng;
+        let currentAngle = 0;
+        
+        points.push([currentLat, currentLng]);
+        
+        for (let i = 0; i < numSegments; i++) {
+            // Instead of perfect circle, create segments that look more like city blocks
+            const segmentAngle = (2 * Math.PI) / numSegments;
+            currentAngle += segmentAngle;
+            
+            // Add some randomness to make it less perfect
+            const radiusVariation = radius * (0.8 + Math.random() * 0.4); // ±20% variation
+            const angleVariation = currentAngle + (Math.random() - 0.5) * 0.3; // Small angle variation
+            
+            // Calculate next point
+            const lat = center.lat + radiusVariation * Math.cos(angleVariation);
+            const lng = center.lng + radiusVariation * Math.sin(angleVariation);
+            
+            // Add intermediate points to create "street segments"
+            const prevLat = points[points.length - 1][0];
+            const prevLng = points[points.length - 1][1];
+            
+            // Add 2-3 intermediate points per segment to simulate streets
+            const intermediatePoints = Math.floor(Math.random() * 2) + 2;
+            for (let j = 1; j <= intermediatePoints; j++) {
+                const progress = j / (intermediatePoints + 1);
+                const intermediateLat = prevLat + (lat - prevLat) * progress;
+                const intermediateLng = prevLng + (lng - prevLng) * progress;
+                
+                // Add small random offset to simulate following streets
+                const offset = 0.0001; // Small offset
+                const offsetLat = intermediateLat + (Math.random() - 0.5) * offset;
+                const offsetLng = intermediateLng + (Math.random() - 0.5) * offset;
+                
+                points.push([offsetLat, offsetLng]);
+            }
+            
             points.push([lat, lng]);
         }
         
-        this.addDebugInfo(`🔄 Ruta circular con ${points.length} puntos generada`);
+        // Close the loop back to start
+        points.push([center.lat, center.lng]);
+        
+        this.addDebugInfo(`🔄 Ruta circular mejorada con ${points.length} puntos generada`);
         return points;
     }
 

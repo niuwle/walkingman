@@ -14,6 +14,14 @@ class FogOfWalk {
         // Game state
         this.gameState = this.loadGameState();
         
+        // Zone exploration system
+        this.explorationZone = null;
+        this.zoneRadius = 2.5; // 5km square = 2.5km radius
+        this.allStreets = [];
+        this.exploredStreets = [];
+        this.currentRouteStreets = [];
+        this.streetsLayer = null;
+        
         this.initializeApp();
     }
 
@@ -111,8 +119,13 @@ class FogOfWalk {
                 .bindPopup('Tu ubicación actual')
                 .openPopup();
 
-            status.textContent = '¡Ubicación obtenida! Ahora puedes generar una ruta.';
+            status.textContent = '¡Ubicación obtenida! Creando zona de exploración...';
             button.innerHTML = '✅ Ubicación Obtenida';
+            
+            // Create exploration zone and fetch streets
+            await this.createExplorationZone();
+            
+            status.textContent = '¡Zona de exploración creada! Ahora puedes generar una ruta.';
             document.getElementById('generate-route').disabled = false;
             
         } catch (error) {
@@ -178,17 +191,14 @@ class FogOfWalk {
         
         try {
             const distance = parseFloat(document.getElementById('distance-slider').value);
-            this.addDebugInfo(`🎯 Generando ruta de ${distance} km`);
+            this.addDebugInfo(`🎯 Generando ruta de ${distance} km dentro de la zona`);
             
-            // Try to generate a street-based route, fallback to circular if needed
-            let route;
-            try {
-                route = await this.createStreetBasedRoute(this.userLocation, distance);
-                this.addDebugInfo('✅ Ruta basada en calles generada exitosamente');
-            } catch (error) {
-                this.addDebugInfo('⚠️ Error con rutas de calles, usando ruta circular');
-                route = this.createCircularRoute(this.userLocation, distance / 6.28); // Convert km to radius
+            if (!this.allStreets || this.allStreets.length === 0) {
+                throw new Error('No hay calles cargadas en la zona');
             }
+            
+            // Generate route using zone streets
+            const route = this.createZoneBasedRoute(distance);
             
             this.currentRoute = route;
             this.routePoints = route.map(point => ({
@@ -197,24 +207,27 @@ class FogOfWalk {
                 visited: false
             }));
             
-            // Clear previous route and markers
-            this.clearMapLayers();
+            // Update street colors (mark current route streets as yellow)
+            this.updateStreetColors();
+            
+            // Clear previous route markers only
+            this.clearRouteMarkers();
             
             // Draw route on map with enhanced styling
             this.routeLayer = L.polyline(route, {
-                color: '#ff6b6b',
-                weight: 8,
-                opacity: 0.9,
-                dashArray: '10, 5',
+                color: '#ffeb3b',
+                weight: 6,
+                opacity: 1,
+                dashArray: '15, 10',
                 lineCap: 'round',
                 lineJoin: 'round'
             }).addTo(this.map);
             
-            // Add glow effect
+            // Add glow effect for route
             L.polyline(route, {
-                color: '#ff6b6b',
-                weight: 12,
-                opacity: 0.3
+                color: '#ffeb3b',
+                weight: 10,
+                opacity: 0.4
             }).addTo(this.map);
             
             // Add start and end markers
@@ -234,10 +247,11 @@ class FogOfWalk {
                 })
             }).addTo(this.map).bindPopup('Final de la ruta');
             
-            // Fit map to route
-            this.map.fitBounds(this.routeLayer.getBounds(), { padding: [20, 20] });
+            // Calculate explored percentage
+            const exploredCount = this.allStreets.filter(s => s.explored).length;
+            const exploredPercentage = Math.round((exploredCount / this.allStreets.length) * 100);
             
-            status.textContent = `¡Ruta de ${distance} km generada! Presiona "Comenzar Caminata" para empezar a explorar.`;
+            status.textContent = `¡Ruta de ${distance} km generada! Zona explorada: ${exploredPercentage}%`;
             button.innerHTML = '🗺️ Generar Nueva Ruta';
             button.disabled = false;
             document.getElementById('start-walk').disabled = false;
@@ -250,6 +264,200 @@ class FogOfWalk {
             button.innerHTML = '🗺️ Generar Ruta';
             button.disabled = false;
         }
+    }
+
+    createZoneBasedRoute(targetDistanceKm) {
+        this.addDebugInfo(`🧭 Creando ruta laberíntica de ${targetDistanceKm}km`);
+        
+        // Filter unexplored streets near user location
+        const nearbyStreets = this.allStreets.filter(street => {
+            if (street.explored) return false;
+            
+            // Check if street is within reasonable distance from user
+            const streetCenter = this.getStreetCenter(street);
+            const distanceToUser = this.calculateDistance(this.userLocation, streetCenter);
+            return distanceToUser < this.zoneRadius; // Within zone
+        });
+        
+        if (nearbyStreets.length === 0) {
+            this.addDebugInfo('⚠️ No hay calles sin explorar, usando todas las calles');
+            nearbyStreets.push(...this.allStreets);
+        }
+        
+        // Select streets to create a route of approximately the target distance
+        const selectedStreets = this.selectStreetsForRoute(nearbyStreets, targetDistanceKm);
+        this.currentRouteStreets = selectedStreets.map(s => s.id);
+        
+        // Create a connected route from selected streets
+        const route = this.connectStreets(selectedStreets);
+        
+        this.addDebugInfo(`✅ Ruta creada con ${selectedStreets.length} calles`);
+        return route;
+    }
+
+    getStreetCenter(street) {
+        const coords = street.coordinates;
+        const centerIndex = Math.floor(coords.length / 2);
+        return {
+            lat: coords[centerIndex][0],
+            lng: coords[centerIndex][1]
+        };
+    }
+
+    selectStreetsForRoute(availableStreets, targetDistanceKm) {
+        const selectedStreets = [];
+        let totalDistance = 0;
+        const targetDistanceM = targetDistanceKm * 1000;
+        
+        // Start with a street near the user
+        let currentStreet = this.findNearestStreet(availableStreets, this.userLocation);
+        if (!currentStreet) return [];
+        
+        selectedStreets.push(currentStreet);
+        totalDistance += this.calculateStreetLength(currentStreet);
+        
+        // Keep adding connected streets until we reach target distance
+        while (totalDistance < targetDistanceM && selectedStreets.length < availableStreets.length) {
+            const nextStreet = this.findConnectedStreet(availableStreets, currentStreet, selectedStreets);
+            if (!nextStreet) break;
+            
+            selectedStreets.push(nextStreet);
+            totalDistance += this.calculateStreetLength(nextStreet);
+            currentStreet = nextStreet;
+            
+            // Stop if we're close to target distance
+            if (totalDistance >= targetDistanceM * 0.8) break;
+        }
+        
+        this.addDebugInfo(`📏 Distancia total: ${(totalDistance / 1000).toFixed(2)}km`);
+        return selectedStreets;
+    }
+
+    findNearestStreet(streets, location) {
+        let nearest = null;
+        let minDistance = Infinity;
+        
+        streets.forEach(street => {
+            const streetCenter = this.getStreetCenter(street);
+            const distance = this.calculateDistance(location, streetCenter);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearest = street;
+            }
+        });
+        
+        return nearest;
+    }
+
+    findConnectedStreet(availableStreets, currentStreet, usedStreets) {
+        const usedIds = usedStreets.map(s => s.id);
+        const currentEnd = currentStreet.coordinates[currentStreet.coordinates.length - 1];
+        
+        let nearest = null;
+        let minDistance = Infinity;
+        
+        availableStreets.forEach(street => {
+            if (usedIds.includes(street.id)) return;
+            
+            // Find closest point on this street to current street end
+            street.coordinates.forEach(coord => {
+                const distance = this.calculateDistance(
+                    { lat: currentEnd[0], lng: currentEnd[1] },
+                    { lat: coord[0], lng: coord[1] }
+                );
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = street;
+                }
+            });
+        });
+        
+        return nearest;
+    }
+
+    calculateStreetLength(street) {
+        let length = 0;
+        for (let i = 1; i < street.coordinates.length; i++) {
+            const prev = { lat: street.coordinates[i-1][0], lng: street.coordinates[i-1][1] };
+            const curr = { lat: street.coordinates[i][0], lng: street.coordinates[i][1] };
+            length += this.calculateDistance(prev, curr) * 1000; // Convert to meters
+        }
+        return length;
+    }
+
+    connectStreets(streets) {
+        const route = [];
+        
+        streets.forEach((street, index) => {
+            if (index === 0) {
+                // First street: add all coordinates
+                route.push(...street.coordinates);
+            } else {
+                // Subsequent streets: connect to previous street
+                const lastPoint = route[route.length - 1];
+                const streetStart = street.coordinates[0];
+                const streetEnd = street.coordinates[street.coordinates.length - 1];
+                
+                // Determine which end of the street is closer to connect
+                const distToStart = this.calculateDistance(
+                    { lat: lastPoint[0], lng: lastPoint[1] },
+                    { lat: streetStart[0], lng: streetStart[1] }
+                );
+                const distToEnd = this.calculateDistance(
+                    { lat: lastPoint[0], lng: lastPoint[1] },
+                    { lat: streetEnd[0], lng: streetEnd[1] }
+                );
+                
+                if (distToStart <= distToEnd) {
+                    // Connect to start, add coordinates in order
+                    route.push(...street.coordinates);
+                } else {
+                    // Connect to end, add coordinates in reverse
+                    route.push(...street.coordinates.reverse());
+                }
+            }
+        });
+        
+        return route;
+    }
+
+    updateStreetColors() {
+        if (!this.streetsLayer) return;
+        
+        // Update colors of all streets
+        this.streetsLayer.eachLayer(layer => {
+            if (layer.options.streetId) {
+                const street = this.allStreets.find(s => s.id === layer.options.streetId);
+                if (street) {
+                    const newColor = this.getStreetColor(street);
+                    layer.setStyle({ color: newColor });
+                }
+            }
+        });
+    }
+
+    clearRouteMarkers() {
+        // Clear only route-related elements, keep streets
+        if (this.routeLayer) {
+            this.map.removeLayer(this.routeLayer);
+        }
+        if (this.startMarker) {
+            this.map.removeLayer(this.startMarker);
+        }
+        if (this.endMarker) {
+            this.map.removeLayer(this.endMarker);
+        }
+        
+        // Clear route glow effects
+        this.map.eachLayer((layer) => {
+            if (layer instanceof L.Polyline && 
+                layer !== this.routeLayer && 
+                layer.options.streetId === undefined &&
+                !this.streetsLayer.hasLayer(layer)) {
+                this.map.removeLayer(layer);
+            }
+        });
     }
 
     async createStreetBasedRoute(center, distanceKm) {
@@ -463,6 +671,178 @@ class FogOfWalk {
         return points;
     }
 
+    async createExplorationZone() {
+        if (!this.userLocation) return;
+        
+        this.addDebugInfo('🗺️ Creando zona de exploración...');
+        
+        // Create exploration zone boundary (5km x 5km square)
+        const bounds = this.calculateZoneBounds(this.userLocation, this.zoneRadius);
+        this.explorationZone = bounds;
+        
+        // Draw zone boundary
+        const zoneBoundary = L.rectangle([
+            [bounds.south, bounds.west],
+            [bounds.north, bounds.east]
+        ], {
+            color: '#4facfe',
+            weight: 3,
+            fillOpacity: 0.1,
+            dashArray: '10, 10'
+        }).addTo(this.map);
+        
+        // Fetch all streets in the zone
+        try {
+            await this.fetchStreetsInZone(bounds);
+            this.drawAllStreets();
+            this.addDebugInfo(`✅ Zona creada con ${this.allStreets.length} calles`);
+        } catch (error) {
+            this.addDebugInfo(`⚠️ Error cargando calles: ${error.message}`);
+        }
+    }
+
+    calculateZoneBounds(center, radiusKm) {
+        // Convert km to degrees (rough approximation)
+        const latDelta = radiusKm / 111; // 1 degree lat ≈ 111km
+        const lngDelta = radiusKm / (111 * Math.cos(center.lat * Math.PI / 180));
+        
+        return {
+            north: center.lat + latDelta,
+            south: center.lat - latDelta,
+            east: center.lng + lngDelta,
+            west: center.lng - lngDelta
+        };
+    }
+
+    async fetchStreetsInZone(bounds) {
+        this.addDebugInfo('📡 Obteniendo calles de OpenStreetMap...');
+        
+        // Overpass API query to get all walkable ways in the bounding box
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              way["highway"~"^(primary|secondary|tertiary|residential|footway|path|pedestrian|living_street|unclassified)$"]
+                  (${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+            );
+            out geom;
+        `;
+        
+        const url = 'https://overpass-api.de/api/interpreter';
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: overpassQuery,
+                headers: {
+                    'Content-Type': 'text/plain'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Process the street data
+            this.allStreets = data.elements
+                .filter(element => element.geometry && element.geometry.length > 1)
+                .map(element => ({
+                    id: element.id,
+                    name: element.tags?.name || 'Calle sin nombre',
+                    type: element.tags?.highway || 'unknown',
+                    coordinates: element.geometry.map(point => [point.lat, point.lon]),
+                    explored: false
+                }));
+                
+            this.addDebugInfo(`📍 ${this.allStreets.length} calles encontradas`);
+            
+        } catch (error) {
+            this.addDebugInfo(`❌ Error con Overpass API: ${error.message}`);
+            // Fallback: create a grid of fake streets for demonstration
+            this.createFakeStreetGrid(bounds);
+        }
+    }
+
+    createFakeStreetGrid(bounds) {
+        this.addDebugInfo('🔄 Creando calles de demostración...');
+        
+        const streets = [];
+        const gridSize = 0.01; // Grid spacing in degrees
+        
+        // Create horizontal streets
+        for (let lat = bounds.south; lat <= bounds.north; lat += gridSize) {
+            streets.push({
+                id: `h_${lat}`,
+                name: `Calle Horizontal ${Math.round(lat * 1000)}`,
+                type: 'residential',
+                coordinates: [
+                    [lat, bounds.west],
+                    [lat, bounds.east]
+                ],
+                explored: false
+            });
+        }
+        
+        // Create vertical streets
+        for (let lng = bounds.west; lng <= bounds.east; lng += gridSize) {
+            streets.push({
+                id: `v_${lng}`,
+                name: `Calle Vertical ${Math.round(lng * 1000)}`,
+                type: 'residential',
+                coordinates: [
+                    [bounds.south, lng],
+                    [bounds.north, lng]
+                ],
+                explored: false
+            });
+        }
+        
+        this.allStreets = streets;
+        this.addDebugInfo(`🏗️ ${streets.length} calles de demostración creadas`);
+    }
+
+    drawAllStreets() {
+        // Clear previous streets layer
+        if (this.streetsLayer) {
+            this.map.removeLayer(this.streetsLayer);
+        }
+        
+        // Create layer group for all streets
+        this.streetsLayer = L.layerGroup();
+        
+        this.allStreets.forEach(street => {
+            const color = this.getStreetColor(street);
+            const polyline = L.polyline(street.coordinates, {
+                color: color,
+                weight: 3,
+                opacity: 0.7,
+                streetId: street.id
+            });
+            
+            polyline.bindPopup(`
+                <strong>${street.name}</strong><br>
+                Tipo: ${street.type}<br>
+                Estado: ${street.explored ? '✅ Explorada' : '🔴 Sin explorar'}
+            `);
+            
+            this.streetsLayer.addLayer(polyline);
+        });
+        
+        this.streetsLayer.addTo(this.map);
+        this.addDebugInfo('🎨 Calles dibujadas en el mapa');
+    }
+
+    getStreetColor(street) {
+        if (this.currentRouteStreets.includes(street.id)) {
+            return '#ffeb3b'; // Yellow for current route
+        } else if (street.explored) {
+            return '#4caf50'; // Green for explored
+        } else {
+            return '#f44336'; // Red for unexplored
+        }
+    }
+
     clearMapLayers() {
         // Clear previous route and markers
         if (this.routeLayer) {
@@ -475,9 +855,9 @@ class FogOfWalk {
             this.map.removeLayer(this.endMarker);
         }
         
-        // Clear any other polylines (glow effects)
+        // Clear any other polylines (glow effects) but keep streets
         this.map.eachLayer((layer) => {
-            if (layer instanceof L.Polyline && layer !== this.routeLayer) {
+            if (layer instanceof L.Polyline && layer !== this.routeLayer && layer.options.streetId === undefined) {
                 this.map.removeLayer(layer);
             }
         });
@@ -656,36 +1036,69 @@ class FogOfWalk {
             this.watchId = null;
         }
         
+        // Mark current route streets as explored
+        this.markStreetsAsExplored();
+        
+        // Calculate exploration progress
+        const exploredCount = this.allStreets.filter(s => s.explored).length;
+        const totalStreets = this.allStreets.length;
+        const exploredPercentage = Math.round((exploredCount / totalStreets) * 100);
+        
         // Update game state
         this.gameState.xp += 100;
         this.gameState.routesCompleted += 1;
+        this.gameState.streetsExplored = exploredCount;
+        this.gameState.explorationPercentage = exploredPercentage;
         this.gameState.completedRoutes.push({
             date: new Date().toISOString(),
             points: this.routePoints.filter(p => p.visited).length,
-            totalPoints: this.routePoints.length
+            totalPoints: this.routePoints.length,
+            streetsExplored: this.currentRouteStreets.length,
+            explorationPercentage: exploredPercentage
         });
         
-        // Check for level up
+        // Check for level up (zone completion)
         const newLevel = this.calculateLevel(this.gameState.xp);
         const oldLevel = this.gameState.level;
-        this.gameState.level = newLevel;
+        let leveledUp = false;
+        
+        // Zone completion bonus
+        if (exploredPercentage >= 80 && !this.gameState.zoneCompleted) {
+            this.gameState.xp += 500; // Bonus XP for zone completion
+            this.gameState.zoneCompleted = true;
+            this.gameState.level = this.calculateLevel(this.gameState.xp);
+            leveledUp = true;
+            this.addAchievement('🏆 ¡Zona completada al 80%!');
+            this.expandExplorationZone();
+        } else {
+            this.gameState.level = newLevel;
+            if (newLevel > oldLevel) leveledUp = true;
+        }
         
         // Save game state
         this.saveGameState();
         
         // Update UI
         this.updateUI();
+        this.updateStreetColors();
         
         // Show completion message
         const status = document.getElementById('status');
-        let message = '¡Ruta completada! +100 XP ganados.';
+        let message = `¡Ruta completada! +100 XP. Zona explorada: ${exploredPercentage}%`;
         
-        if (newLevel > oldLevel) {
-            message += ` ¡Subiste al nivel ${newLevel}!`;
-            this.addAchievement(`¡Nivel ${newLevel} alcanzado!`);
+        if (leveledUp) {
+            message += ` ¡Subiste al nivel ${this.gameState.level}!`;
+            this.addAchievement(`¡Nivel ${this.gameState.level} alcanzado!`);
+        }
+        
+        if (exploredPercentage >= 80) {
+            message += ' ¡Zona casi completada!';
         }
         
         status.textContent = message;
+        
+        // Reset route-specific state
+        this.currentRouteStreets = [];
         
         // Reset buttons
         document.getElementById('start-walk').innerHTML = '🚶‍♂️ Comenzar Caminata';
@@ -695,7 +1108,35 @@ class FogOfWalk {
         document.getElementById('generate-route').disabled = false;
         
         // Add achievement
-        this.addAchievement(`Ruta #${this.gameState.routesCompleted} completada`);
+        this.addAchievement(`Ruta #${this.gameState.routesCompleted} completada (${this.currentRouteStreets.length} calles)`);
+        
+        this.addDebugInfo(`🎉 Ruta completada. ${exploredCount}/${totalStreets} calles exploradas`);
+    }
+
+    markStreetsAsExplored() {
+        let newlyExplored = 0;
+        
+        this.currentRouteStreets.forEach(streetId => {
+            const street = this.allStreets.find(s => s.id === streetId);
+            if (street && !street.explored) {
+                street.explored = true;
+                newlyExplored++;
+            }
+        });
+        
+        this.addDebugInfo(`✅ ${newlyExplored} calles nuevas exploradas`);
+    }
+
+    expandExplorationZone() {
+        // Expand the zone when current zone is mostly completed
+        this.zoneRadius *= 1.5; // Increase zone size by 50%
+        this.addDebugInfo(`🔄 Expandiendo zona a ${this.zoneRadius.toFixed(1)}km de radio`);
+        
+        // Reset zone completion flag
+        this.gameState.zoneCompleted = false;
+        
+        // Optionally reload streets for new zone
+        // This could be implemented to fetch new streets in the expanded area
     }
 
     calculateLevel(xp) {
@@ -738,7 +1179,12 @@ class FogOfWalk {
     loadGameState() {
         const saved = localStorage.getItem('fogOfWalkGameState');
         if (saved) {
-            return JSON.parse(saved);
+            const state = JSON.parse(saved);
+            // Ensure new properties exist
+            if (!state.hasOwnProperty('streetsExplored')) state.streetsExplored = 0;
+            if (!state.hasOwnProperty('explorationPercentage')) state.explorationPercentage = 0;
+            if (!state.hasOwnProperty('zoneCompleted')) state.zoneCompleted = false;
+            return state;
         }
         
         return {
@@ -746,7 +1192,10 @@ class FogOfWalk {
             xp: 0,
             routesCompleted: 0,
             completedRoutes: [],
-            visitedStreets: []
+            visitedStreets: [],
+            streetsExplored: 0,
+            explorationPercentage: 0,
+            zoneCompleted: false
         };
     }
 

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fog of Walk - Zone Exploration Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            line-height: 1.6;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .feature h3 {
+            color: #4facfe;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .demo-button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        .color-legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .workflow {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .workflow ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .workflow li {
+            margin: 8px 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4facfe;
+        }
+        .highlight {
+            background: rgba(255, 235, 59, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Fog of Walk - Sistema de Exploración por Zonas</h1>
+    
+    <div class="feature">
+        <h3>🎯 Concepto: "Fog of War" Real</h3>
+        <p>Ahora la app funciona como un verdadero juego de exploración:</p>
+        <ul>
+            <li>✅ <strong>Zona de 5km x 5km</strong> alrededor de tu ubicación</li>
+            <li>✅ <strong>Todas las calles reales</strong> se muestran en rojo (sin explorar)</li>
+            <li>✅ <strong>Rutas generadas</strong> se muestran en amarillo (a caminar)</li>
+            <li>✅ <strong>Calles completadas</strong> se vuelven verdes (exploradas)</li>
+            <li>✅ <strong>Progresión por niveles</strong> basada en % de zona explorada</li>
+        </ul>
+        
+        <div class="color-legend">
+            <div class="color-item">
+                <div class="color-box" style="background: #f44336;"></div>
+                <span>🔴 Calles sin explorar</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box" style="background: #ffeb3b;"></div>
+                <span>🟡 Ruta actual (a caminar)</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box" style="background: #4caf50;"></div>
+                <span>🟢 Calles exploradas</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box" style="background: #4facfe; opacity: 0.3;"></div>
+                <span>🔵 Límite de zona</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="feature">
+        <h3>🎮 Cómo Funciona el Nuevo Sistema</h3>
+        
+        <div class="workflow">
+            <h4>📍 Paso 1: Creación de Zona</h4>
+            <ol>
+                <li>Al obtener tu ubicación, se crea una <span class="highlight">zona de 5km x 5km</span></li>
+                <li>Se descargan <span class="highlight">todas las calles reales</span> usando OpenStreetMap</li>
+                <li>Las calles aparecen en <span class="highlight">rojo</span> (sin explorar)</li>
+                <li>Se dibuja el <span class="highlight">perímetro azul</span> de la zona</li>
+            </ol>
+        </div>
+
+        <div class="workflow">
+            <h4>🗺️ Paso 2: Generación de Rutas Inteligentes</h4>
+            <ol>
+                <li>El slider de distancia (1-10km) determina <span class="highlight">cuánto quieres caminar</span></li>
+                <li>El algoritmo selecciona <span class="highlight">calles sin explorar</span> cerca de ti</li>
+                <li>Crea una <span class="highlight">ruta laberíntica</span> conectando esas calles</li>
+                <li>La ruta aparece en <span class="highlight">amarillo</span> sobre las calles</li>
+            </ol>
+        </div>
+
+        <div class="workflow">
+            <h4>🚶‍♂️ Paso 3: Exploración y Progreso</h4>
+            <ol>
+                <li>Caminas siguiendo la <span class="highlight">ruta amarilla</span></li>
+                <li>Al completar la ruta, las calles se vuelven <span class="highlight">verdes</span></li>
+                <li>Ganas <span class="highlight">100 XP + progreso de exploración</span></li>
+                <li>Al explorar <span class="highlight">80% de la zona</span>, ¡subes de nivel!</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="feature">
+        <h3>🏆 Sistema de Progresión</h3>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">100</div>
+                <div>XP por ruta completada</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">500</div>
+                <div>XP bonus por zona 80%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">5km</div>
+                <div>Tamaño inicial de zona</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">80%</div>
+                <div>Para completar zona</div>
+            </div>
+        </div>
+
+        <h4>🎯 Mecánicas de Nivel:</h4>
+        <ul>
+            <li>🥇 <strong>Nivel 1</strong>: Zona inicial de 5km x 5km</li>
+            <li>🥈 <strong>Nivel 2+</strong>: Al completar 80% de zona, se expande 50%</li>
+            <li>🏆 <strong>Bonus XP</strong>: 500 puntos extra por completar zona</li>
+            <li>📊 <strong>Tracking</strong>: % de exploración en tiempo real</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🔧 Características Técnicas</h3>
+        <ul>
+            <li>✅ <strong>OpenStreetMap Integration</strong>: Calles reales via Overpass API</li>
+            <li>✅ <strong>Fallback System</strong>: Grid de demostración si falla la API</li>
+            <li>✅ <strong>Smart Route Selection</strong>: Prioriza calles sin explorar</li>
+            <li>✅ <strong>Distance Matching</strong>: Rutas ajustadas al slider de distancia</li>
+            <li>✅ <strong>Persistent Progress</strong>: Calles exploradas se guardan localmente</li>
+            <li>✅ <strong>Visual Feedback</strong>: Colores dinámicos según estado</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🧪 Instrucciones de Prueba</h3>
+        
+        <div class="workflow">
+            <h4>🎮 Prueba Completa:</h4>
+            <ol>
+                <li><strong>Abrir app</strong>: Haz clic en "Abrir Fog of Walk" abajo</li>
+                <li><strong>Obtener ubicación</strong>: Permite acceso GPS</li>
+                <li><strong>Observar zona</strong>: Verás calles rojas y perímetro azul</li>
+                <li><strong>Ajustar distancia</strong>: Usa el slider (1-10km)</li>
+                <li><strong>Generar ruta</strong>: Verás ruta amarilla sobre calles</li>
+                <li><strong>Modo prueba</strong>: Simula la caminata automáticamente</li>
+                <li><strong>Completar</strong>: Las calles se vuelven verdes</li>
+                <li><strong>Repetir</strong>: Genera nuevas rutas hasta completar zona</li>
+            </ol>
+        </div>
+
+        <div class="workflow">
+            <h4>🐛 Debug y Monitoreo:</h4>
+            <ul>
+                <li>Activa el <span class="highlight">panel de debug</span> para ver logs detallados</li>
+                <li>Observa mensajes como "📍 X calles encontradas"</li>
+                <li>Verifica "✅ X calles nuevas exploradas" al completar</li>
+                <li>Monitorea el % de exploración en el status</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="feature">
+        <h3>🎯 Resultados Esperados</h3>
+        <ul>
+            <li>🗺️ <strong>Mapa realista</strong>: Calles reales de tu zona en rojo</li>
+            <li>🎨 <strong>Colores dinámicos</strong>: Rojo → Amarillo → Verde</li>
+            <li>📏 <strong>Rutas precisas</strong>: Distancia ajustada al slider</li>
+            <li>🧭 <strong>Rutas inteligentes</strong>: Conectan calles sin explorar</li>
+            <li>📊 <strong>Progreso visible</strong>: % de exploración actualizado</li>
+            <li>🏆 <strong>Gamificación</strong>: XP, niveles, y logros por exploración</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px;">
+        <button class="demo-button" onclick="window.open('index.html', '_blank')" 
+                style="font-size: 1.3em; padding: 20px 40px;">
+            🎮 Abrir Fog of Walk
+        </button>
+        <br>
+        <button class="demo-button" onclick="window.open('tmp_rovodev_test_routing.html', '_blank')">
+            🧪 Test de Rutas
+        </button>
+    </div>
+
+    <div class="feature">
+        <h3>💡 Tips para Mejores Resultados</h3>
+        <ul>
+            <li>🏙️ <strong>Zonas urbanas</strong>: Mejor cobertura de calles</li>
+            <li>🌐 <strong>Conexión estable</strong>: Para descargar datos de OpenStreetMap</li>
+            <li>🔄 <strong>Recarga si falla</strong>: La API puede estar ocupada</li>
+            <li>🎯 <strong>Usa modo prueba</strong>: Para testing sin caminar</li>
+            <li>📱 <strong>Mantén app abierta</strong>: Durante caminatas reales</li>
+        </ul>
+    </div>
+</body>
+</html>

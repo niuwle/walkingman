@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walking Route Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-top">
+                <h1>⚡ ROUTING TEST</h1>
+                <div class="version-badge">TEST</div>
+            </div>
+            <div class="tactical-subtitle">TESTING IMPROVED ROUTING SYSTEM</div>
+        </header>
+
+        <main class="main-content">
+            <div class="controls">
+                <button id="get-location" class="btn btn-primary">📡 ACQUIRE GPS LOCK</button>
+                <div class="distance-control">
+                    <label for="distance-slider">MISSION RANGE: <span id="distance-value">2</span> KM</label>
+                    <input type="range" id="distance-slider" min="1" max="10" value="2" step="0.5">
+                </div>
+                <button id="generate-route" class="btn btn-secondary" disabled>⚡ GENERATE MISSION</button>
+                <button id="start-walk" class="btn btn-success" disabled>🎯 DEPLOY OPERATIVE</button>
+                <button id="test-mode" class="btn btn-test" disabled>🔬 TACTICAL SIM</button>
+                <button id="toggle-debug" class="btn btn-debug">⚙️ SYSTEM LOG</button>
+            </div>
+
+            <div class="status" id="status">
+                TESTING IMPROVED ROUTING: GPS → STREET-BASED PATHS → GREEN COMPLETION
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">
+                    MISSION PROGRESS: <span id="progress-percentage">0</span>%
+                </div>
+            </div>
+
+            <div class="debug-container" id="debug-container" style="display: block;">
+                <div class="debug-header">
+                    <h3>⚙️ ROUTING TEST LOG</h3>
+                    <button id="clear-debug" class="btn-small">🗑️ CLEAR LOG</button>
+                </div>
+                <div class="debug-panel" id="debug-panel">
+                    <div class="debug-entry">
+                        <span class="debug-time">INIT</span> 🧪 Testing improved routing system...
+                    </div>
+                    <div class="debug-entry">
+                        <span class="debug-time">INIT</span> ✅ Routes should start/end at GPS location
+                    </div>
+                    <div class="debug-entry">
+                        <span class="debug-time">INIT</span> ✅ Routes should follow streets only
+                    </div>
+                    <div class="debug-entry">
+                        <span class="debug-time">INIT</span> ✅ Routes should turn green when completed
+                    </div>
+                    <div class="debug-entry">
+                        <span class="debug-time">INIT</span> ✅ Routes should use optimal walking order
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

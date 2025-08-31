@@ -294,8 +294,8 @@ class FogOfWalk {
         const selectedStreets = this.selectStreetsForRoute(nearbyStreets, targetDistanceKm);
         this.currentRouteStreets = selectedStreets.map(s => s.id);
         
-        // Create a connected route from selected streets
-        const route = this.connectStreets(selectedStreets);
+        // Create a connected route from selected streets that starts and ends at user location
+        const route = this.createWalkableRoute(selectedStreets);
         
         this.addDebugInfo(`✅ Ruta creada con ${selectedStreets.length} calles`);
         return route;
@@ -324,42 +324,50 @@ class FogOfWalk {
         usedStreetIds.add(currentStreet.id);
         totalDistance += this.calculateStreetLength(currentStreet);
         
+        // Use nearest neighbor algorithm for optimal walking order
         let currentPosition = this.getStreetCenter(currentStreet);
-        let spiralAngle = 0;
-        const spiralIncrement = Math.PI / 4; // 45 degrees per step
         
-        // Create a spiral/circular route that makes walking sense
+        // Build route using nearest neighbor approach for minimal walking distance
         while (totalDistance < targetDistanceM && selectedStreets.length < availableStreets.length) {
-            // Find next street in a spiral pattern
-            const nextStreet = this.findNextStreetInSpiral(
+            // Find the nearest unvisited street
+            const nextStreet = this.findNearestUnvisitedStreet(
                 availableStreets, 
                 currentPosition, 
-                spiralAngle,
                 usedStreetIds
             );
             
-            if (!nextStreet) {
-                // If no street found in spiral, find closest unused street
-                const fallbackStreet = this.findClosestUnusedStreet(
+            if (!nextStreet) break;
+            
+            // Add walking distance between streets to total
+            const walkingDistance = this.calculateDistance(currentPosition, this.getStreetCenter(nextStreet)) * 1000;
+            const streetLength = this.calculateStreetLength(nextStreet);
+            
+            // Check if adding this street would exceed our target by too much
+            if (totalDistance + streetLength + walkingDistance > targetDistanceM * 1.2) {
+                // Try to find a shorter street nearby
+                const shorterStreet = this.findShorterNearbyStreet(
                     availableStreets, 
                     currentPosition, 
-                    usedStreetIds
+                    usedStreetIds,
+                    targetDistanceM - totalDistance
                 );
-                if (!fallbackStreet) break;
-                selectedStreets.push(fallbackStreet);
-                usedStreetIds.add(fallbackStreet.id);
-                totalDistance += this.calculateStreetLength(fallbackStreet);
-                currentPosition = this.getStreetCenter(fallbackStreet);
-            } else {
-                selectedStreets.push(nextStreet);
-                usedStreetIds.add(nextStreet.id);
-                totalDistance += this.calculateStreetLength(nextStreet);
-                currentPosition = this.getStreetCenter(nextStreet);
-                spiralAngle += spiralIncrement;
+                
+                if (shorterStreet) {
+                    selectedStreets.push(shorterStreet);
+                    usedStreetIds.add(shorterStreet.id);
+                    totalDistance += this.calculateStreetLength(shorterStreet);
+                    currentPosition = this.getStreetCenter(shorterStreet);
+                }
+                break;
             }
             
+            selectedStreets.push(nextStreet);
+            usedStreetIds.add(nextStreet.id);
+            totalDistance += streetLength + walkingDistance;
+            currentPosition = this.getStreetCenter(nextStreet);
+            
             // Stop if we're close to target distance
-            if (totalDistance >= targetDistanceM * 0.8) break;
+            if (totalDistance >= targetDistanceM * 0.9) break;
         }
         
         // Calculate estimated completion time
@@ -367,12 +375,57 @@ class FogOfWalk {
         
         this.addDebugInfo(`📏 TOTAL DISTANCE: ${(totalDistance / 1000).toFixed(2)}KM`);
         this.addDebugInfo(`⏱️ ESTIMATED TIME: ${estimatedTimeMinutes} MINUTES`);
-        this.addDebugInfo(`🌀 SPIRAL ROUTE WITH ${selectedStreets.length} STREETS`);
+        this.addDebugInfo(`🎯 OPTIMIZED ROUTE WITH ${selectedStreets.length} STREETS`);
         
         // Store estimated time for UI display
         this.currentRouteEstimatedTime = estimatedTimeMinutes;
         
         return selectedStreets;
+    }
+
+    findNearestUnvisitedStreet(availableStreets, currentPosition, usedStreetIds) {
+        let nearestStreet = null;
+        let minDistance = Infinity;
+        
+        availableStreets.forEach(street => {
+            if (usedStreetIds.has(street.id)) return;
+            
+            const streetCenter = this.getStreetCenter(street);
+            const distance = this.calculateDistance(currentPosition, streetCenter);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestStreet = street;
+            }
+        });
+        
+        return nearestStreet;
+    }
+
+    findShorterNearbyStreet(availableStreets, currentPosition, usedStreetIds, remainingDistance) {
+        let bestStreet = null;
+        let bestScore = Infinity;
+        
+        availableStreets.forEach(street => {
+            if (usedStreetIds.has(street.id)) return;
+            
+            const streetCenter = this.getStreetCenter(street);
+            const distance = this.calculateDistance(currentPosition, streetCenter);
+            const streetLength = this.calculateStreetLength(street);
+            
+            // Only consider streets that fit in remaining distance
+            if (streetLength <= remainingDistance) {
+                // Score based on distance to street (prefer closer streets)
+                const score = distance;
+                
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestStreet = street;
+                }
+            }
+        });
+        
+        return bestStreet;
     }
 
     findNextStreetInSpiral(availableStreets, currentPosition, angle, usedStreetIds) {
@@ -483,40 +536,170 @@ class FogOfWalk {
         return length;
     }
 
-    connectStreets(streets) {
+    createWalkableRoute(streets) {
+        if (streets.length === 0) return [];
+        
         const route = [];
         
-        streets.forEach((street, index) => {
-            if (index === 0) {
-                // First street: add all coordinates
-                route.push(...street.coordinates);
-            } else {
-                // Subsequent streets: connect to previous street
-                const lastPoint = route[route.length - 1];
-                const streetStart = street.coordinates[0];
-                const streetEnd = street.coordinates[street.coordinates.length - 1];
+        // Always start at user's current location
+        route.push([this.userLocation.lat, this.userLocation.lng]);
+        
+        // Find the closest point on the first street to user location
+        const firstStreet = streets[0];
+        const closestPointOnFirstStreet = this.findClosestPointOnStreet(firstStreet, this.userLocation);
+        
+        // Add path from user location to first street (if not already there)
+        if (this.calculateDistance(this.userLocation, closestPointOnFirstStreet) > 0.001) {
+            route.push([closestPointOnFirstStreet.lat, closestPointOnFirstStreet.lng]);
+        }
+        
+        // Walk along each street following the actual street coordinates
+        for (let i = 0; i < streets.length; i++) {
+            const street = streets[i];
+            const streetRoute = this.getOptimalStreetPath(street, route[route.length - 1]);
+            
+            // Add all points along this street
+            streetRoute.forEach(point => {
+                route.push(point);
+            });
+            
+            // If there's a next street, find the best connection
+            if (i < streets.length - 1) {
+                const nextStreet = streets[i + 1];
+                const connectionPath = this.findStreetConnection(street, nextStreet);
                 
-                // Determine which end of the street is closer to connect
-                const distToStart = this.calculateDistance(
-                    { lat: lastPoint[0], lng: lastPoint[1] },
-                    { lat: streetStart[0], lng: streetStart[1] }
-                );
-                const distToEnd = this.calculateDistance(
-                    { lat: lastPoint[0], lng: lastPoint[1] },
-                    { lat: streetEnd[0], lng: streetEnd[1] }
-                );
-                
-                if (distToStart <= distToEnd) {
-                    // Connect to start, add coordinates in order
-                    route.push(...street.coordinates);
-                } else {
-                    // Connect to end, add coordinates in reverse
-                    route.push(...street.coordinates.reverse());
-                }
+                // Add connection path (following streets, not diagonal)
+                connectionPath.forEach(point => {
+                    route.push(point);
+                });
+            }
+        }
+        
+        // Always end back at user's current location
+        const lastPoint = route[route.length - 1];
+        if (this.calculateDistance(
+            { lat: lastPoint[0], lng: lastPoint[1] }, 
+            this.userLocation
+        ) > 0.001) {
+            route.push([this.userLocation.lat, this.userLocation.lng]);
+        }
+        
+        this.addDebugInfo(`🛣️ Ruta creada con ${route.length} puntos siguiendo calles`);
+        return route;
+    }
+
+    findClosestPointOnStreet(street, location) {
+        let closestPoint = null;
+        let minDistance = Infinity;
+        
+        street.coordinates.forEach(coord => {
+            const point = { lat: coord[0], lng: coord[1] };
+            const distance = this.calculateDistance(location, point);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPoint = point;
             }
         });
         
-        return route;
+        return closestPoint;
+    }
+
+    getOptimalStreetPath(street, startPoint) {
+        const streetCoords = street.coordinates;
+        const start = { lat: startPoint[0], lng: startPoint[1] };
+        
+        // Find which end of the street is closer to our current position
+        const distToStart = this.calculateDistance(start, { lat: streetCoords[0][0], lng: streetCoords[0][1] });
+        const distToEnd = this.calculateDistance(start, { 
+            lat: streetCoords[streetCoords.length - 1][0], 
+            lng: streetCoords[streetCoords.length - 1][1] 
+        });
+        
+        // Return coordinates in the optimal walking order
+        if (distToStart <= distToEnd) {
+            return streetCoords; // Walk from start to end
+        } else {
+            return [...streetCoords].reverse(); // Walk from end to start
+        }
+    }
+
+    findStreetConnection(fromStreet, toStreet) {
+        // Find the best connection between two streets following street network
+        const fromEnd = fromStreet.coordinates[fromStreet.coordinates.length - 1];
+        const toStart = this.findClosestPointOnStreet(toStreet, { lat: fromEnd[0], lng: fromEnd[1] });
+        
+        const fromPoint = { lat: fromEnd[0], lng: fromEnd[1] };
+        const toPoint = { lat: toStart.lat, lng: toStart.lng };
+        
+        // Check if the streets are very close (within 50m) - direct connection
+        const directDistance = this.calculateDistance(fromPoint, toPoint);
+        if (directDistance < 0.05) { // 50 meters
+            return [[toStart.lat, toStart.lng]];
+        }
+        
+        // Try to find intermediate streets that connect these two points
+        const connectionPath = this.findStreetBasedPath(fromPoint, toPoint);
+        
+        return connectionPath;
+    }
+
+    findStreetBasedPath(fromPoint, toPoint) {
+        // Find a path that follows streets between two points
+        const maxSearchDistance = 0.2; // 200m max search radius
+        const intermediateStreets = [];
+        
+        // Find streets that could serve as connections
+        this.allStreets.forEach(street => {
+            const streetCenter = this.getStreetCenter(street);
+            const distFromStart = this.calculateDistance(fromPoint, streetCenter);
+            const distFromEnd = this.calculateDistance(toPoint, streetCenter);
+            
+            // Street is potentially useful if it's reasonably close to both points
+            if (distFromStart < maxSearchDistance && distFromEnd < maxSearchDistance) {
+                intermediateStreets.push({
+                    street: street,
+                    distFromStart: distFromStart,
+                    distFromEnd: distFromEnd,
+                    totalDist: distFromStart + distFromEnd
+                });
+            }
+        });
+        
+        // Sort by total distance to find best intermediate street
+        intermediateStreets.sort((a, b) => a.totalDist - b.totalDist);
+        
+        if (intermediateStreets.length > 0) {
+            // Use the best intermediate street
+            const bestIntermediate = intermediateStreets[0];
+            const streetStart = this.findClosestPointOnStreet(bestIntermediate.street, fromPoint);
+            const streetEnd = this.findClosestPointOnStreet(bestIntermediate.street, toPoint);
+            
+            return [
+                [streetStart.lat, streetStart.lng],
+                [streetEnd.lat, streetEnd.lng],
+                [toPoint.lat, toPoint.lng]
+            ];
+        }
+        
+        // If no good intermediate street found, create a path that follows a grid-like pattern
+        // This simulates following city blocks instead of cutting diagonally
+        const midLat = (fromPoint.lat + toPoint.lat) / 2;
+        const midLng = (fromPoint.lng + toPoint.lng) / 2;
+        
+        // Create an L-shaped path (more realistic than diagonal)
+        if (Math.abs(fromPoint.lat - toPoint.lat) > Math.abs(fromPoint.lng - toPoint.lng)) {
+            // Go vertically first, then horizontally
+            return [
+                [toPoint.lat, fromPoint.lng], // Vertical movement
+                [toPoint.lat, toPoint.lng]    // Horizontal movement
+            ];
+        } else {
+            // Go horizontally first, then vertically
+            return [
+                [fromPoint.lat, toPoint.lng], // Horizontal movement
+                [toPoint.lat, toPoint.lng]    // Vertical movement
+            ];
+        }
     }
 
     updateStreetColors() {
@@ -1135,6 +1318,9 @@ class FogOfWalk {
             this.watchId = null;
         }
         
+        // Change route color to green to indicate completion
+        this.markRouteAsCompleted();
+        
         // Mark current route streets as explored
         this.markStreetsAsExplored();
         
@@ -1314,6 +1500,36 @@ class FogOfWalk {
         }
         
         return totalDistance; // Returns distance in km
+    }
+
+    markRouteAsCompleted() {
+        // Change the route color to green to indicate successful completion
+        if (this.routeLayer) {
+            this.routeLayer.setStyle({
+                color: '#4caf50', // Green color for completed route
+                weight: 6,
+                opacity: 1,
+                dashArray: null, // Remove dashed pattern
+                lineCap: 'round',
+                lineJoin: 'round'
+            });
+            
+            // Update glow effect to green as well
+            this.map.eachLayer((layer) => {
+                if (layer instanceof L.Polyline && 
+                    layer !== this.routeLayer && 
+                    layer.options.streetId === undefined &&
+                    layer.options.color === '#ffeb3b' && // Find the yellow glow layer
+                    layer.options.weight === 10) {
+                    layer.setStyle({
+                        color: '#4caf50',
+                        opacity: 0.4
+                    });
+                }
+            });
+        }
+        
+        this.addDebugInfo('✅ Ruta marcada como completada (verde)');
     }
 
     markStreetsAsExplored() {

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #test-map {
+            height: 400px;
+            width: 100%;
+            border: 2px solid red;
+        }
+        body {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .debug {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Map Test</h1>
+    <div class="debug" id="debug-info">Loading...</div>
+    <div id="test-map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        function addDebug(message) {
+            const debug = document.getElementById('debug-info');
+            debug.innerHTML += '<br>' + message;
+            console.log(message);
+        }
+
+        addDebug('Starting map test...');
+        
+        // Check if Leaflet is loaded
+        if (typeof L !== 'undefined') {
+            addDebug('✅ Leaflet library loaded successfully');
+        } else {
+            addDebug('❌ Leaflet library not loaded');
+        }
+
+        try {
+            // Initialize map
+            addDebug('Attempting to create map...');
+            const map = L.map('test-map').setView([40.4168, -3.7038], 13);
+            addDebug('✅ Map object created');
+
+            // Add tile layer
+            addDebug('Adding tile layer...');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            addDebug('✅ Tile layer added');
+
+            // Add a test marker
+            addDebug('Adding test marker...');
+            L.marker([40.4168, -3.7038])
+                .addTo(map)
+                .bindPopup('Test marker in Madrid')
+                .openPopup();
+            addDebug('✅ Test marker added');
+
+            addDebug('🎉 Map test completed successfully!');
+
+        } catch (error) {
+            addDebug('❌ Error: ' + error.message);
+            console.error('Map error:', error);
+        }
+    </script>
+</body>
+</html>

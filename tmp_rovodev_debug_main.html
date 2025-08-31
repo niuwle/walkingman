@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - The Walking Man</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        
+        .debug-info {
+            background: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #00ff41;
+        }
+        
+        .map-container {
+            height: 400px;
+            width: 100%;
+            border: 3px solid #00ff41;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            background: #222;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        .btn {
+            background: #00ff41;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .btn:disabled {
+            background: #666;
+            color: #999;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 DEBUG MODE - The Walking Man</h1>
+    
+    <div class="debug-info" id="debug-log">
+        <strong>Debug Log:</strong><br>
+        Initializing...
+    </div>
+    
+    <div class="controls">
+        <button id="test-map-btn" class="btn">Test Map Creation</button>
+        <button id="get-location" class="btn">Get Location</button>
+    </div>
+    
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let debugLog = document.getElementById('debug-log');
+        let map = null;
+        
+        function addDebug(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<br>[${timestamp}] ${message}`;
+            console.log(`[${timestamp}] ${message}`);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        function testMapCreation() {
+            try {
+                addDebug('🔍 Testing map creation...');
+                
+                // Check if Leaflet is available
+                if (typeof L === 'undefined') {
+                    addDebug('❌ Leaflet library not loaded!');
+                    return;
+                }
+                addDebug('✅ Leaflet library is available');
+                
+                // Check if map container exists
+                const mapContainer = document.getElementById('map');
+                if (!mapContainer) {
+                    addDebug('❌ Map container not found!');
+                    return;
+                }
+                addDebug('✅ Map container found');
+                
+                // Check container dimensions
+                const rect = mapContainer.getBoundingClientRect();
+                addDebug(`📏 Container dimensions: ${rect.width}x${rect.height}`);
+                
+                if (rect.width === 0 || rect.height === 0) {
+                    addDebug('⚠️ Container has zero dimensions!');
+                }
+                
+                // Try to create map
+                addDebug('🗺️ Creating map instance...');
+                if (map) {
+                    map.remove();
+                }
+                
+                map = L.map('map').setView([40.4168, -3.7038], 13);
+                addDebug('✅ Map instance created successfully');
+                
+                // Add tile layer
+                addDebug('🌍 Adding tile layer...');
+                const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                });
+                
+                tileLayer.addTo(map);
+                addDebug('✅ Tile layer added');
+                
+                // Add test marker
+                addDebug('📍 Adding test marker...');
+                L.marker([40.4168, -3.7038])
+                    .addTo(map)
+                    .bindPopup('Test marker - Madrid')
+                    .openPopup();
+                addDebug('✅ Test marker added');
+                
+                // Force map to invalidate size
+                setTimeout(() => {
+                    map.invalidateSize();
+                    addDebug('🔄 Map size invalidated');
+                }, 100);
+                
+                addDebug('🎉 Map test completed successfully!');
+                
+            } catch (error) {
+                addDebug(`❌ Error during map creation: ${error.message}`);
+                addDebug(`📋 Error stack: ${error.stack}`);
+                console.error('Map creation error:', error);
+            }
+        }
+        
+        function testGeolocation() {
+            addDebug('📍 Testing geolocation...');
+            
+            if (!navigator.geolocation) {
+                addDebug('❌ Geolocation not supported');
+                return;
+            }
+            
+            addDebug('✅ Geolocation API available');
+            addDebug(`🔒 Protocol: ${window.location.protocol}`);
+            addDebug(`🌐 Host: ${window.location.host}`);
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    addDebug(`✅ Location obtained: ${position.coords.latitude}, ${position.coords.longitude}`);
+                    
+                    if (map) {
+                        map.setView([position.coords.latitude, position.coords.longitude], 16);
+                        L.marker([position.coords.latitude, position.coords.longitude])
+                            .addTo(map)
+                            .bindPopup('Your location')
+                            .openPopup();
+                        addDebug('✅ Map updated with your location');
+                    }
+                },
+                (error) => {
+                    addDebug(`❌ Geolocation error: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        }
+        
+        // Event listeners
+        document.getElementById('test-map-btn').addEventListener('click', testMapCreation);
+        document.getElementById('get-location').addEventListener('click', testGeolocation);
+        
+        // Auto-run tests on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addDebug('🚀 Page loaded, running initial tests...');
+            setTimeout(testMapCreation, 500);
+        });
+        
+        // Check for any global errors
+        window.addEventListener('error', (event) => {
+            addDebug(`💥 Global error: ${event.error.message}`);
+            console.error('Global error:', event.error);
+        });
+        
+        addDebug('🔧 Debug script loaded');
+    </script>
+</body>
+</html>

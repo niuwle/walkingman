@@ -54,6 +54,13 @@ class FogOfWalk {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(this.map);
+        
+        // Force map to recalculate size after a short delay
+        setTimeout(() => {
+            if (this.map) {
+                this.map.invalidateSize();
+            }
+        }, 100);
     }
 
     async getUserLocation() {

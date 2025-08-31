@@ -250,7 +250,7 @@ class FogOfWalk {
             const exploredCount = this.allStreets.filter(s => s.explored).length;
             const exploredPercentage = Math.round((exploredCount / this.allStreets.length) * 100);
             
-            status.textContent = `MISSION ${distance}KM GENERATED! ZONE EXPLORED: ${exploredPercentage}%`;
+            status.textContent = `MISSION ${distance}KM GENERATED! EST. TIME: ${this.currentRouteEstimatedTime}MIN | ZONE: ${exploredPercentage}%`;
             button.innerHTML = '⚡ GENERATE MISSION';
             button.disabled = false;
             document.getElementById('start-walk').disabled = false;
@@ -355,8 +355,16 @@ class FogOfWalk {
             if (totalDistance >= targetDistanceM * 0.8) break;
         }
         
+        // Calculate estimated completion time
+        const estimatedTimeMinutes = this.calculateEstimatedTime(totalDistance);
+        
         this.addDebugInfo(`📏 TOTAL DISTANCE: ${(totalDistance / 1000).toFixed(2)}KM`);
+        this.addDebugInfo(`⏱️ ESTIMATED TIME: ${estimatedTimeMinutes} MINUTES`);
         this.addDebugInfo(`🌀 SPIRAL ROUTE WITH ${selectedStreets.length} STREETS`);
+        
+        // Store estimated time for UI display
+        this.currentRouteEstimatedTime = estimatedTimeMinutes;
+        
         return selectedStreets;
     }
 
@@ -403,6 +411,16 @@ class FogOfWalk {
         });
         
         return bestStreet;
+    }
+
+    calculateEstimatedTime(distanceMeters) {
+        // Average walking speed: 5 km/h = 83.33 m/min
+        // Add extra time for turns, intersections, and navigation
+        const baseWalkingSpeed = 83.33; // meters per minute
+        const navigationOverhead = 1.2; // 20% extra time for navigation
+        
+        const estimatedMinutes = Math.round((distanceMeters / baseWalkingSpeed) * navigationOverhead);
+        return Math.max(estimatedMinutes, 1); // Minimum 1 minute
     }
 
     findNearestStreet(streets, location) {
@@ -1118,11 +1136,15 @@ class FogOfWalk {
         const totalStreets = this.allStreets.length;
         const exploredPercentage = Math.round((exploredCount / totalStreets) * 100);
         
+        // Calculate route distance for tracking
+        const routeDistance = this.calculateRouteDistance();
+        
         // Update game state
         this.gameState.xp += 100;
         this.gameState.routesCompleted += 1;
         this.gameState.streetsExplored = exploredCount;
         this.gameState.explorationPercentage = exploredPercentage;
+        this.gameState.totalDistanceWalked = (this.gameState.totalDistanceWalked || 0) + routeDistance;
         this.gameState.completedRoutes.push({
             date: new Date().toISOString(),
             points: this.routePoints.filter(p => p.visited).length,
@@ -1180,10 +1202,111 @@ class FogOfWalk {
         document.getElementById('progress-container').style.display = 'none';
         document.getElementById('generate-route').disabled = false;
         
-        // Add achievement
-        this.addAchievement(`Ruta #${this.gameState.routesCompleted} completada (${this.currentRouteStreets.length} calles)`);
+        // Check for achievement badges
+        this.checkAchievementBadges(exploredCount, totalStreets, exploredPercentage);
         
-        this.addDebugInfo(`🎉 Ruta completada. ${exploredCount}/${totalStreets} calles exploradas`);
+        // Add basic completion achievement
+        this.addAchievement(`🎯 Mission #${this.gameState.routesCompleted} Complete (${this.currentRouteStreets.length} streets)`);
+        
+        this.addDebugInfo(`🎉 MISSION COMPLETE. ${exploredCount}/${totalStreets} STREETS EXPLORED`);
+    }
+
+    checkAchievementBadges(exploredCount, totalStreets, exploredPercentage) {
+        const routesCompleted = this.gameState.routesCompleted;
+        const currentLevel = this.gameState.level;
+        
+        // Mission Count Badges
+        if (routesCompleted === 1) {
+            this.addAchievement('🎖️ FIRST BLOOD - First mission completed');
+        } else if (routesCompleted === 5) {
+            this.addAchievement('🏅 SQUAD LEADER - 5 missions completed');
+        } else if (routesCompleted === 10) {
+            this.addAchievement('🎗️ LIEUTENANT - 10 missions completed');
+        } else if (routesCompleted === 25) {
+            this.addAchievement('🎖️ CAPTAIN - 25 missions completed');
+        } else if (routesCompleted === 50) {
+            this.addAchievement('⭐ MAJOR - 50 missions completed');
+        } else if (routesCompleted === 100) {
+            this.addAchievement('🌟 COLONEL - 100 missions completed');
+        }
+        
+        // Exploration Percentage Badges
+        if (exploredPercentage >= 25 && !this.gameState.badges?.explorer25) {
+            this.addAchievement('🗺️ SCOUT - 25% zone explored');
+            this.setBadge('explorer25');
+        } else if (exploredPercentage >= 50 && !this.gameState.badges?.explorer50) {
+            this.addAchievement('🧭 NAVIGATOR - 50% zone explored');
+            this.setBadge('explorer50');
+        } else if (exploredPercentage >= 75 && !this.gameState.badges?.explorer75) {
+            this.addAchievement('🎯 PATHFINDER - 75% zone explored');
+            this.setBadge('explorer75');
+        } else if (exploredPercentage >= 90 && !this.gameState.badges?.explorer90) {
+            this.addAchievement('👑 ZONE MASTER - 90% zone explored');
+            this.setBadge('explorer90');
+        }
+        
+        // Level Badges
+        if (currentLevel === 2 && !this.gameState.badges?.level2) {
+            this.addAchievement('⚡ PROMOTED - Reached Rank 2');
+            this.setBadge('level2');
+        } else if (currentLevel === 5 && !this.gameState.badges?.level5) {
+            this.addAchievement('🔥 VETERAN - Reached Rank 5');
+            this.setBadge('level5');
+        } else if (currentLevel === 10 && !this.gameState.badges?.level10) {
+            this.addAchievement('💎 ELITE - Reached Rank 10');
+            this.setBadge('level10');
+        }
+        
+        // Street Count Badges
+        if (exploredCount >= 10 && !this.gameState.badges?.streets10) {
+            this.addAchievement('🛣️ STREET WALKER - 10 streets explored');
+            this.setBadge('streets10');
+        } else if (exploredCount >= 50 && !this.gameState.badges?.streets50) {
+            this.addAchievement('🏙️ URBAN EXPLORER - 50 streets explored');
+            this.setBadge('streets50');
+        } else if (exploredCount >= 100 && !this.gameState.badges?.streets100) {
+            this.addAchievement('🌆 CITY CONQUEROR - 100 streets explored');
+            this.setBadge('streets100');
+        }
+        
+        // Special Achievement Badges
+        if (routesCompleted % 10 === 0 && routesCompleted > 0) {
+            this.addAchievement(`🎊 MILESTONE - ${routesCompleted} missions milestone reached`);
+        }
+        
+        // Distance-based badges (if we track total distance)
+        const totalDistance = this.gameState.totalDistanceWalked || 0;
+        if (totalDistance >= 10 && !this.gameState.badges?.distance10) {
+            this.addAchievement('🚶 WALKER - 10km total distance');
+            this.setBadge('distance10');
+        } else if (totalDistance >= 50 && !this.gameState.badges?.distance50) {
+            this.addAchievement('🏃 RUNNER - 50km total distance');
+            this.setBadge('distance50');
+        } else if (totalDistance >= 100 && !this.gameState.badges?.distance100) {
+            this.addAchievement('🏃‍♂️ MARATHON MAN - 100km total distance');
+            this.setBadge('distance100');
+        }
+    }
+
+    setBadge(badgeName) {
+        if (!this.gameState.badges) {
+            this.gameState.badges = {};
+        }
+        this.gameState.badges[badgeName] = true;
+        this.saveGameState();
+    }
+
+    calculateRouteDistance() {
+        if (!this.currentRoute || this.currentRoute.length < 2) return 0;
+        
+        let totalDistance = 0;
+        for (let i = 1; i < this.currentRoute.length; i++) {
+            const prev = { lat: this.currentRoute[i-1][0], lng: this.currentRoute[i-1][1] };
+            const curr = { lat: this.currentRoute[i][0], lng: this.currentRoute[i][1] };
+            totalDistance += this.calculateDistance(prev, curr);
+        }
+        
+        return totalDistance; // Returns distance in km
     }
 
     markStreetsAsExplored() {
@@ -1227,6 +1350,7 @@ class FogOfWalk {
         document.getElementById('xp').textContent = this.gameState.xp;
         document.getElementById('xp-needed').textContent = this.calculateXPNeeded(this.gameState.level + 1);
         document.getElementById('routes-completed').textContent = this.gameState.routesCompleted;
+        document.getElementById('total-distance').textContent = (this.gameState.totalDistanceWalked || 0).toFixed(1);
     }
 
     addAchievement(text) {
@@ -1250,13 +1374,15 @@ class FogOfWalk {
     }
 
     loadGameState() {
-        const saved = localStorage.getItem('fogOfWalkGameState');
+        const saved = localStorage.getItem('theWalkingManGameState');
         if (saved) {
             const state = JSON.parse(saved);
             // Ensure new properties exist
             if (!state.hasOwnProperty('streetsExplored')) state.streetsExplored = 0;
             if (!state.hasOwnProperty('explorationPercentage')) state.explorationPercentage = 0;
             if (!state.hasOwnProperty('zoneCompleted')) state.zoneCompleted = false;
+            if (!state.hasOwnProperty('badges')) state.badges = {};
+            if (!state.hasOwnProperty('totalDistanceWalked')) state.totalDistanceWalked = 0;
             return state;
         }
         
@@ -1268,12 +1394,14 @@ class FogOfWalk {
             visitedStreets: [],
             streetsExplored: 0,
             explorationPercentage: 0,
-            zoneCompleted: false
+            zoneCompleted: false,
+            badges: {},
+            totalDistanceWalked: 0
         };
     }
 
     saveGameState() {
-        localStorage.setItem('fogOfWalkGameState', JSON.stringify(this.gameState));
+        localStorage.setItem('theWalkingManGameState', JSON.stringify(this.gameState));
     }
 
     addDebugInfo(message) {

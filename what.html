@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Walking Man - Tactical Exploration</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 48, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(120, 119, 198, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #0f0f0f 50%, #1a1a1a 75%, #0a0a0a 100%);
+            min-height: 100vh;
+            color: #00ff41;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 65, 0.03) 2px,
+                    rgba(0, 255, 65, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            background: 
+                linear-gradient(135deg, rgba(40, 40, 40, 0.95) 0%, rgba(60, 60, 60, 0.95) 100%),
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    rgba(0, 255, 65, 0.05) 10px,
+                    rgba(0, 255, 65, 0.05) 20px
+                );
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 10% 10%, rgba(0, 255, 65, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 90% 90%, rgba(255, 165, 0, 0.1) 0%, transparent 50%);
+            border-radius: 13px;
+            pointer-events: none;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #00ff41;
+            text-shadow: 
+                0 0 10px rgba(0, 255, 65, 0.5),
+                0 0 20px rgba(0, 255, 65, 0.3),
+                0 0 30px rgba(0, 255, 65, 0.1);
+            letter-spacing: 3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .version-badge {
+            background: 
+                linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #000;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            border: 2px solid #ff6b35;
+            box-shadow: 
+                0 0 15px rgba(255, 107, 53, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            text-shadow: none;
+        }
+
+        .tactical-subtitle {
+            font-size: 0.9rem;
+            color: #ff6b35;
+            letter-spacing: 2px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px rgba(255, 107, 53, 0.3);
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+                0 0 10px rgba(0, 255, 65, 0.1);
+            min-width: 120px;
+        }
+
+        .stat .label {
+            font-size: 0.8rem;
+            color: #888;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #00ff41;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            background: 
+                linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(40, 40, 40, 0.9) 100%);
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #333;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%);
+            color: #000;
+            border-color: #00ff41;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            text-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #000;
+            border-color: #ff6b35;
+            box-shadow: 
+                0 0 20px rgba(255, 107, 53, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            text-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00ccff 0%, #0099cc 100%);
+            color: #000;
+            border-color: #00ccff;
+            box-shadow: 
+                0 0 20px rgba(0, 204, 255, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            text-shadow: none;
+        }
+
+        .btn-test {
+            background: linear-gradient(135deg, #cc00ff 0%, #9900cc 100%);
+            color: #fff;
+            border-color: #cc00ff;
+            box-shadow: 
+                0 0 20px rgba(204, 0, 255, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-debug {
+            background: linear-gradient(135deg, #666 0%, #444 100%);
+            color: #fff;
+            border-color: #666;
+            box-shadow: 
+                0 0 20px rgba(102, 102, 102, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .btn:not(:disabled):hover {
+            transform: translateY(-3px);
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.3),
+                0 0 30px currentColor;
+        }
+
+        .distance-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 15px 0;
+            padding: 20px;
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            border-radius: 15px;
+            border: 2px solid #333;
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 0 15px rgba(0, 255, 65, 0.1);
+        }
+
+        .distance-control label {
+            color: #00ff41;
+            font-weight: 700;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+        }
+
+        .distance-control input[type="range"] {
+            width: 250px;
+            height: 8px;
+            border-radius: 4px;
+            background: 
+                linear-gradient(90deg, #333 0%, #555 50%, #333 100%);
+            outline: none;
+            -webkit-appearance: none;
+            border: 1px solid #222;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .distance-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle, #00ff41 0%, #00cc33 70%, #009922 100%);
+            cursor: pointer;
+            border: 2px solid #000;
+            box-shadow: 
+                0 0 15px rgba(0, 255, 65, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .distance-control input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle, #00ff41 0%, #00cc33 70%, #009922 100%);
+            cursor: pointer;
+            border: 2px solid #000;
+            box-shadow: 
+                0 0 15px rgba(0, 255, 65, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .status {
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.8) 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #00ff41;
+            border: 2px solid #333;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+        }
+
+        .map-container {
+            flex: 1;
+            min-height: 400px;
+            height: 500px;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 3px solid #333;
+            box-shadow: 
+                0 0 30px rgba(0, 0, 0, 0.5),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
+            position: relative;
+            z-index: 10; /* Ensure map container is above other elements */
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            filter: 
+                contrast(1.1) 
+                brightness(0.9) 
+                hue-rotate(10deg);
+            z-index: 10;
+        }
+
+        /* Fix for Leaflet controls */
+        .leaflet-control-container {
+            z-index: 1000 !important;
+        }
+
+        .progress-container {
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.8) 100%);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: 
+                linear-gradient(90deg, #111 0%, #222 50%, #111 100%);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #333;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: 
+                linear-gradient(90deg, #00ff41 0%, #00cc33 50%, #00ff41 100%);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            position: relative;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 700;
+            color: #00ff41;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+        }
+
+        .debug-container {
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border-radius: 10px;
+            border: 2px solid #333;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: 
+                linear-gradient(135deg, rgba(40, 40, 40, 0.9) 0%, rgba(60, 60, 60, 0.9) 100%);
+            border-bottom: 2px solid #333;
+        }
+
+        .debug-header h3 {
+            color: #ff6b35;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            background: 
+                linear-gradient(135deg, #666 0%, #444 100%);
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .btn-small:hover {
+            background: 
+                linear-gradient(135deg, #777 0%, #555 100%);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .debug-panel {
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #00ff41;
+        }
+
+        .debug-entry {
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.1);
+        }
+
+        .debug-time {
+            color: #888;
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            background: 
+                linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(40, 40, 40, 0.9) 100%);
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #333;
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .achievements h3 {
+            color: #ff6b35;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(255, 107, 53, 0.4);
+        }
+
+        #achievements-list {
+            color: #00ff41;
+        }
+
+        .achievement {
+            background: 
+                linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 0 10px rgba(0, 255, 65, 0.1);
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 255, 65, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ff41;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Custom marker styles */
+        .custom-marker {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            text-shadow: 
+                0 0 10px rgba(0, 0, 0, 0.8),
+                0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+                letter-spacing: 2px;
+            }
+            
+            .stats {
+                gap: 15px;
+            }
+            
+            .stat {
+                min-width: 100px;
+                padding: 12px 15px;
+            }
+            
+            .btn {
+                min-width: 180px;
+                padding: 12px 20px;
+                font-size: 0.9rem;
+            }
+            
+            .distance-control input[type="range"] {
+                width: 200px;
+            }
+            
+            .controls {
+                padding: 20px;
+            }
+            
+            .map-container {
+                height: 350px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+                letter-spacing: 1px;
+            }
+            
+            .version-badge {
+                padding: 6px 12px;
+                font-size: 0.7rem;
+            }
+            
+            .tactical-subtitle {
+                font-size: 0.8rem;
+                letter-spacing: 1px;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .stat {
+                min-width: auto;
+                width: 100%;
+            }
+            
+            .btn {
+                min-width: 150px;
+                font-size: 0.8rem;
+            }
+            
+            .distance-control input[type="range"] {
+                width: 180px;
+            }
+            
+            .map-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-top">
+                <h1>⚡ THE WALKING MAN</h1>
+                <div class="version-badge">v2.1.1</div>
+            </div>
+            <div class="tactical-subtitle">TACTICAL EXPLORATION SYSTEM</div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="label">RANK:</span>
+                    <span id="level" class="stat-value">1</span>
+                </div>
+                <div class="stat">
+                    <span class="label">XP:</span>
+                    <span id="xp" class="stat-value">0</span>/<span id="xp-needed" class="stat-value">500</span>
+                </div>
+                <div class="stat">
+                    <span class="label">MISSIONS:</span>
+                    <span id="routes-completed" class="stat-value">0</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="controls">
+                <button id="get-location" class="btn btn-primary">📡 ACQUIRE GPS LOCK</button>
+                <div class="distance-control">
+                    <label for="distance-slider">MISSION RANGE: <span id="distance-value">2</span> KM</label>
+                    <input type="range" id="distance-slider" min="1" max="10" value="2" step="0.5">
+                </div>
+                <button id="generate-route" class="btn btn-secondary" disabled>⚡ GENERATE MISSION</button>
+                <button id="start-walk" class="btn btn-success" disabled>🎯 DEPLOY OPERATIVE</button>
+                <button id="test-mode" class="btn btn-test" disabled>🔬 TACTICAL SIM</button>
+                <button id="toggle-debug" class="btn btn-debug">⚙️ SYSTEM LOG</button>
+            </div>
+
+            <div class="status" id="status">
+                PRESS "ACQUIRE GPS LOCK" TO INITIALIZE TACTICAL OPERATIONS
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">
+                    MISSION PROGRESS: <span id="progress-percentage">0</span>%
+                </div>
+            </div>
+
+            <div class="debug-container" id="debug-container" style="display: none;">
+                <div class="debug-header">
+                    <h3>⚙️ SYSTEM DIAGNOSTICS</h3>
+                    <button id="clear-debug" class="btn-small">🗑️ CLEAR LOG</button>
+                </div>
+                <div class="debug-panel" id="debug-panel"></div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="achievements">
+                <h3>🎖️ TACTICAL ACHIEVEMENTS</h3>
+                <div id="achievements-list">
+                    <p>DEPLOY ON FIRST MISSION TO UNLOCK COMMENDATIONS</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // The Walking Man - Fixed Application Script
+        class FogOfWalk {
+            constructor() {
+                this.map = null;
+                this.userLocation = null;
+                this.currentRoute = null;
+                this.routeLayer = null;
+                this.userMarker = null;
+                this.isWalking = false;
+                this.routePoints = [];
+                this.visitedPoints = [];
+                this.watchId = null;
+                
+                // Game state
+                this.gameState = this.loadGameState();
+                
+                // Zone exploration system
+                this.explorationZone = null;
+                this.zoneRadius = 0.25; // 0.5km square = 0.25km radius
+                this.allStreets = [];
+                this.exploredStreets = [];
+                this.currentRouteStreets = [];
+                this.streetsLayer = null;
+                
+                this.initializeApp();
+            }
+
+            initializeApp() {
+                // Wait for DOM to be fully loaded
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        this.setupApp();
+                    });
+                } else {
+                    this.setupApp();
+                }
+            }
+
+            setupApp() {
+                this.updateUI();
+                this.bindEvents();
+                // Delay map initialization to ensure container is ready
+                setTimeout(() => {
+                    this.initializeMap();
+                }, 100);
+            }
+
+            bindEvents() {
+                document.getElementById('get-location').addEventListener('click', () => this.getUserLocation());
+                document.getElementById('generate-route').addEventListener('click', () => this.generateRoute());
+                document.getElementById('start-walk').addEventListener('click', () => this.startWalk());
+                document.getElementById('test-mode').addEventListener('click', () => this.startTestMode());
+                document.getElementById('toggle-debug').addEventListener('click', () => this.toggleDebugPanel());
+                document.getElementById('clear-debug').addEventListener('click', () => this.clearDebugInfo());
+                
+                // Distance slider
+                const distanceSlider = document.getElementById('distance-slider');
+                const distanceValue = document.getElementById('distance-value');
+                distanceSlider.addEventListener('input', (e) => {
+                    distanceValue.textContent = e.target.value;
+                });
+            }
+
+            initializeMap() {
+                try {
+                    // Check if map container exists and has dimensions
+                    const mapContainer = document.getElementById('map');
+                    if (!mapContainer) {
+                        this.addDebugInfo('❌ Map container not found');
+                        return;
+                    }
+
+                    // Initialize map centered on Madrid (will be updated when location is obtained)
+                    this.map = L.map('map', {
+                        zoomControl: true,
+                        attributionControl: true
+                    }).setView([40.4168, -3.7038], 13);
+                    
+                    // Add tile layer
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(this.map);
+
+                    // Force map to invalidate size after initialization
+                    setTimeout(() => {
+                        if (this.map) {
+                            this.map.invalidateSize();
+                        }
+                    }, 200);
+
+                    this.addDebugInfo('✅ Map initialized successfully');
+                } catch (error) {
+                    this.addDebugInfo(`❌ Map initialization failed: ${error.message}`);
+                    console.error('Map initialization error:', error);
+                }
+            }
+
+            async getUserLocation() {
+                const button = document.getElementById('get-location');
+                const status = document.getElementById('status');
+                
+                button.innerHTML = '<span class="loading"></span> Obteniendo ubicación...';
+                button.disabled = true;
+                
+                // Add debug info
+                this.addDebugInfo('🔍 Iniciando proceso de geolocalización...');
+                this.addDebugInfo(`📱 User Agent: ${navigator.userAgent.substring(0, 100)}...`);
+                this.addDebugInfo(`🔒 Protocol: ${window.location.protocol}`);
+                this.addDebugInfo(`🌐 Host: ${window.location.host}`);
+                
+                // Check if we're on HTTPS or localhost
+                const isSecure = window.location.protocol === 'https:' || 
+                               window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
+                
+                if (!isSecure) {
+                    const errorMsg = 'Geolocalización requiere HTTPS o localhost. Usa https:// o localhost';
+                    status.textContent = errorMsg;
+                    this.addDebugInfo(`⚠️ ${errorMsg}`);
+                    button.innerHTML = '📍 Obtener Ubicación';
+                    button.disabled = false;
+                    return;
+                }
+
+                if (!navigator.geolocation) {
+                    const errorMsg = 'La geolocalización no está soportada en este navegador';
+                    status.textContent = errorMsg;
+                    this.addDebugInfo(`❌ ${errorMsg}`);
+                    button.innerHTML = '📍 Obtener Ubicación';
+                    button.disabled = false;
+                    return;
+                }
+
+                this.addDebugInfo('✅ Geolocation API disponible');
+                
+                // Check permissions API if available
+                if ('permissions' in navigator) {
+                    try {
+                        const permission = await navigator.permissions.query({name: 'geolocation'});
+                        this.addDebugInfo(`🔐 Permission status: ${permission.state}`);
+                    } catch (permError) {
+                        this.addDebugInfo(`⚠️ No se pudo verificar permisos: ${permError.message}`);
+                    }
+                }
+
+                try {
+                    this.addDebugInfo('📍 Solicitando posición...');
+                    const position = await this.getCurrentPosition();
+                    
+                    this.addDebugInfo(`✅ Posición obtenida!`);
+                    this.addDebugInfo(`📍 Lat: ${position.coords.latitude.toFixed(6)}`);
+                    this.addDebugInfo(`📍 Lng: ${position.coords.longitude.toFixed(6)}`);
+                    this.addDebugInfo(`🎯 Accuracy: ${position.coords.accuracy}m`);
+                    this.addDebugInfo(`⏰ Timestamp: ${new Date(position.timestamp).toLocaleString()}`);
+                    
+                    this.userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    // Ensure map is ready before updating view
+                    if (this.map) {
+                        // Update map view
+                        this.map.setView([this.userLocation.lat, this.userLocation.lng], 16);
+                        
+                        // Add user marker
+                        if (this.userMarker) {
+                            this.map.removeLayer(this.userMarker);
+                        }
+                        
+                        this.userMarker = L.marker([this.userLocation.lat, this.userLocation.lng])
+                            .addTo(this.map)
+                            .bindPopup('Tu ubicación actual')
+                            .openPopup();
+
+                        // Force map to update
+                        setTimeout(() => {
+                            if (this.map) {
+                                this.map.invalidateSize();
+                            }
+                        }, 100);
+                    }
+
+                    status.textContent = 'GPS LOCK ACQUIRED! INITIALIZING TACTICAL ZONE...';
+                    button.innerHTML = '✅ GPS LOCKED';
+                    
+                    // Create exploration zone and fetch streets
+                    await this.createExplorationZone();
+                    
+                    status.textContent = 'TACTICAL ZONE ESTABLISHED! READY TO GENERATE MISSION.';
+                    document.getElementById('generate-route').disabled = false;
+                    
+                } catch (error) {
+                    console.error('Error getting location:', error);
+                    
+                    let errorMsg = 'Error desconocido';
+                    let debugMsg = '';
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = 'Permiso denegado. Por favor, permite el acceso a la ubicación.';
+                            debugMsg = '❌ PERMISSION_DENIED: El usuario denegó el acceso a la geolocalización';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = 'Ubicación no disponible. Verifica tu conexión GPS.';
+                            debugMsg = '❌ POSITION_UNAVAILABLE: La ubicación no está disponible';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = 'Tiempo de espera agotado. Inténtalo de nuevo.';
+                            debugMsg = '❌ TIMEOUT: Se agotó el tiempo de espera para obtener la ubicación';
+                            break;
+                        default:
+                            errorMsg = `Error: ${error.message}`;
+                            debugMsg = `❌ Error code ${error.code}: ${error.message}`;
+                            break;
+                    }
+                    
+                    this.addDebugInfo(debugMsg);
+                    this.addDebugInfo(`🔧 Sugerencias de solución:`);
+                    this.addDebugInfo(`💡 1. Verifica que hayas dado permisos de ubicación`);
+                    this.addDebugInfo(`💡 2. Asegúrate de estar en exteriores o cerca de una ventana`);
+                    this.addDebugInfo(`💡 3. Verifica que el GPS esté activado en tu dispositivo`);
+                    this.addDebugInfo(`💡 4. Usa HTTPS o localhost para mejor compatibilidad`);
+                    
+                    status.textContent = errorMsg;
+                    button.innerHTML = '📍 Obtener Ubicación';
+                    button.disabled = false;
+                }
+            }
+
+            getCurrentPosition() {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 15000, // Increased timeout
+                        maximumAge: 60000
+                    });
+                });
+            }
+
+            async generateRoute() {
+                const button = document.getElementById('generate-route');
+                const status = document.getElementById('status');
+                
+                button.innerHTML = '<span class="loading"></span> Generando ruta...';
+                button.disabled = true;
+                
+                try {
+                    const distance = parseFloat(document.getElementById('distance-slider').value);
+                    this.addDebugInfo(`🎯 Generando ruta de ${distance} km`);
+                    
+                    // Create a simple circular route for demo purposes
+                    const route = this.createCircularRoute(this.userLocation, distance / 8); // Smaller radius for realistic route
+                    
+                    this.currentRoute = route;
+                    this.routePoints = route.map(point => ({
+                        lat: point[0],
+                        lng: point[1],
+                        visited: false
+                    }));
+                    
+                    // Clear previous route markers
+                    this.clearRouteMarkers();
+                    
+                    // Draw route on map with enhanced styling
+                    this.routeLayer = L.polyline(route, {
+                        color: '#ffeb3b',
+                        weight: 6,
+                        opacity: 1,
+                        dashArray: '15, 10',
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(this.map);
+                    
+                    // Add glow effect for route
+                    L.polyline(route, {
+                        color: '#ffeb3b',
+                        weight: 10,
+                        opacity: 0.4
+                    }).addTo(this.map);
+                    
+                    // Add start and end markers
+                    this.startMarker = L.marker(route[0], {
+                        icon: L.divIcon({
+                            className: 'custom-marker start-marker',
+                            html: '🚀',
+                            iconSize: [30, 30]
+                        })
+                    }).addTo(this.map).bindPopup('Inicio de la ruta');
+                    
+                    this.endMarker = L.marker(route[route.length - 1], {
+                        icon: L.divIcon({
+                            className: 'custom-marker end-marker',
+                            html: '🏁',
+                            iconSize: [30, 30]
+                        })
+                    }).addTo(this.map).bindPopup('Final de la ruta');
+                    
+                    // Calculate estimated time
+                    const estimatedTime = Math.max(Math.round(distance * 12), 5); // 12 minutes per km, min 5 minutes
+                    
+                    status.textContent = `MISSION ${distance}KM GENERATED! EST. TIME: ${estimatedTime}MIN`;
+                    button.innerHTML = '⚡ GENERATE MISSION';
+                    button.disabled = false;
+                    document.getElementById('start-walk').disabled = false;
+                    document.getElementById('test-mode').disabled = false;
+                    
+                } catch (error) {
+                    console.error('Error generating route:', error);
+                    this.addDebugInfo(`❌ Error generando ruta: ${error.message}`);
+                    status.textContent = 'Error al generar la ruta. Inténtalo de nuevo.';
+                    button.innerHTML = '⚡ GENERATE MISSION';
+                    button.disabled = false;
+                }
+            }
+
+            createCircularRoute(center, radius) {
+                const points = [];
+                const numSegments = Math.max(16, Math.floor(radius * 80)); // More segments for smoother route
+                
+                let currentLat = center.lat;
+                let currentLng = center.lng;
+                let currentAngle = 0;
+                
+                points.push([currentLat, currentLng]);
+                
+                for (let i = 0; i < numSegments; i++) {
+                    const segmentAngle = (2 * Math.PI) / numSegments;
+                    currentAngle += segmentAngle;
+                    
+                    // Add some randomness to make it less perfect
+                    const radiusVariation = radius * (0.7 + Math.random() * 0.6); // ±30% variation
+                    const angleVariation = currentAngle + (Math.random() - 0.5) * 0.2; // Small angle variation
+                    
+                    // Calculate next point
+                    const lat = center.lat + (radiusVariation / 111) * Math.cos(angleVariation);
+                    const lng = center.lng + (radiusVariation / (111 * Math.cos(center.lat * Math.PI / 180))) * Math.sin(angleVariation);
+                    
+                    points.push([lat, lng]);
+                }
+                
+                // Close the loop back to start
+                points.push([center.lat, center.lng]);
+                
+                this.addDebugInfo(`🔄 Ruta circular generada con ${points.length} puntos`);
+                return points;
+            }
+
+            async createExplorationZone() {
+                if (!this.userLocation) return;
+                
+                this.addDebugInfo('🗺️ Creando zona de exploración...');
+                
+                // Create a simple circular zone for demo
+                const circle = L.circle([this.userLocation.lat, this.userLocation.lng], {
+                    color: '#4facfe',
+                    fillColor: '#4facfe',
+                    fillOpacity: 0.1,
+                    radius: this.zoneRadius * 1000 // Convert km to meters
+                }).addTo(this.map);
+                
+                this.addDebugInfo('✅ Zona de exploración creada');
+            }
+
+            clearRouteMarkers() {
+                // Clear only route-related elements
+                if (this.routeLayer) {
+                    this.map.removeLayer(this.routeLayer);
+                }
+                if (this.startMarker) {
+                    this.map.removeLayer(this.startMarker);
+                }
+                if (this.endMarker) {
+                    this.map.removeLayer(this.endMarker);
+                }
+                
+                // Clear route glow effects
+                this.map.eachLayer((layer) => {
+                    if (layer instanceof L.Polyline && 
+                        layer !== this.routeLayer && 
+                        !layer.options.radius) { // Don't remove circles
+                        this.map.removeLayer(layer);
+                    }
+                });
+            }
+
+            startTestMode() {
+                if (!this.currentRoute) {
+                    alert('Primero genera una ruta');
+                    return;
+                }
+                
+                const button = document.getElementById('test-mode');
+                const status = document.getElementById('status');
+                
+                button.innerHTML = '🧪 Simulando...';
+                button.disabled = true;
+                
+                this.isWalking = true;
+                this.visitedPoints = [];
+                
+                status.textContent = '🔬 TACTICAL SIMULATION ACTIVE - RUNNING MISSION...';
+                document.getElementById('progress-container').style.display = 'block';
+                
+                // Simulate walking the route
+                this.simulateWalk();
+            }
+
+            simulateWalk() {
+                let currentIndex = 0;
+                const totalPoints = this.routePoints.length;
+                const interval = 300; // 300ms between points for faster simulation
+                
+                const simulationInterval = setInterval(() => {
+                    if (currentIndex >= totalPoints || !this.isWalking) {
+                        clearInterval(simulationInterval);
+                        document.getElementById('test-mode').innerHTML = '🔬 TACTICAL SIM';
+                        document.getElementById('test-mode').disabled = false;
+                        return;
+                    }
+                    
+                    // Mark current point as visited
+                    if (currentIndex < totalPoints) {
+                        this.routePoints[currentIndex].visited = true;
+                        this.visitedPoints.push(currentIndex);
+                        
+                        // Update user marker position
+                        const currentPoint = this.routePoints[currentIndex];
+                        if (this.userMarker) {
+                            this.userMarker.setLatLng([currentPoint.lat, currentPoint.lng]);
+                        }
+                        
+                        // Update progress
+                        const progress = (this.visitedPoints.length / totalPoints) * 100;
+                        document.getElementById('progress-fill').style.width = `${progress}%`;
+                        document.getElementById('progress-percentage').textContent = Math.round(progress);
+                        
+                        // Check if route is mostly completed (90%)
+                        if (progress >= 90) {
+                            this.completeRoute();
+                            clearInterval(simulationInterval);
+                        }
+                    }
+                    
+                    currentIndex++;
+                }, interval);
+                
+                this.addDebugInfo('🧪 Iniciando simulación de caminata');
+            }
+
+            startWalk() {
+                const button = document.getElementById('start-walk');
+                const status = document.getElementById('status');
+                const progressContainer = document.getElementById('progress-container');
+                
+                this.isWalking = true;
+                this.visitedPoints = [];
+                
+                button.innerHTML = '🎯 OPERATIVE DEPLOYED';
+                button.disabled = true;
+                status.textContent = 'MISSION ACTIVE! FOLLOW THE YELLOW TACTICAL ROUTE.';
+                progressContainer.style.display = 'block';
+                
+                // Start tracking user location
+                this.startLocationTracking();
+            }
+
+            startLocationTracking() {
+                if (navigator.geolocation) {
+                    this.watchId = navigator.geolocation.watchPosition(
+                        (position) => this.updateUserPosition(position),
+                        (error) => {
+                            console.error('Error tracking location:', error);
+                            this.addDebugInfo(`❌ Error tracking: ${error.message}`);
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 5000,
+                            maximumAge: 1000
+                        }
+                    );
+                }
+            }
+
+            updateUserPosition(position) {
+                if (!this.isWalking) return;
+                
+                const currentPos = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                
+                // Update user marker
+                if (this.userMarker) {
+                    this.userMarker.setLatLng([currentPos.lat, currentPos.lng]);
+                }
+                
+                // Check if user is near any route points
+                this.checkRouteProgress(currentPos);
+            }
+
+            checkRouteProgress(currentPos) {
+                const threshold = 0.0005; // ~50 meters
+                let newVisits = 0;
+                
+                this.routePoints.forEach((point, index) => {
+                    if (!point.visited) {
+                        const distance = this.calculateDistance(currentPos, point);
+                        if (distance < threshold) {
+                            point.visited = true;
+                            this.visitedPoints.push(index);
+                            newVisits++;
+                        }
+                    }
+                });
+                
+                // Update progress
+                const progress = (this.visitedPoints.length / this.routePoints.length) * 100;
+                document.getElementById('progress-fill').style.width = `${progress}%`;
+                document.getElementById('progress-percentage').textContent = Math.round(progress);
+                
+                // Check if route is mostly completed (90%)
+                if (progress >= 90) {
+                    this.completeRoute();
+                }
+            }
+
+            calculateDistance(pos1, pos2) {
+                const R = 6371e3; // Earth's radius in meters
+                const φ1 = pos1.lat * Math.PI/180;
+                const φ2 = pos2.lat * Math.PI/180;
+                const Δφ = (pos2.lat-pos1.lat) * Math.PI/180;
+                const Δλ = (pos2.lng-pos1.lng) * Math.PI/180;
+
+                const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                        Math.cos(φ1) * Math.cos(φ2) *
+                        Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+                return R * c / 1000; // Convert to km
+            }
+
+            completeRoute() {
+                if (!this.isWalking) return;
+                
+                this.isWalking = false;
+                
+                // Stop location tracking
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                
+                // Update game state
+                this.gameState.xp += 100;
+                this.gameState.routesCompleted += 1;
+                
+                // Check for level up
+                const newLevel = this.calculateLevel(this.gameState.xp);
+                const oldLevel = this.gameState.level;
+                this.gameState.level = newLevel;
+                
+                // Save game state
+                this.saveGameState();
+                
+                // Update UI
+                this.updateUI();
+                
+                // Show completion message
+                const status = document.getElementById('status');
+                let message = `¡Ruta completada! +100 XP`;
+                
+                if (newLevel > oldLevel) {
+                    message += ` ¡Subiste al nivel ${newLevel}!`;
+                    this.addAchievement(`Nivel ${newLevel} alcanzado!`);
+                }
+                
+                status.textContent = message;
+                
+                // Add completion achievement
+                this.addAchievement(`🎯 Mission #${this.gameState.routesCompleted} Complete`);
+                
+                // Reset buttons
+                document.getElementById('start-walk').innerHTML = '🎯 DEPLOY OPERATIVE';
+                document.getElementById('start-walk').disabled = true;
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('generate-route').disabled = false;
+                
+                this.addDebugInfo(`🎉 MISSION COMPLETE. Route #${this.gameState.routesCompleted}`);
+            }
+
+            calculateLevel(xp) {
+                // Level formula: Level = floor(sqrt(XP / 100)) + 1
+                return Math.floor(Math.sqrt(xp / 100)) + 1;
+            }
+
+            calculateXPNeeded(level) {
+                // XP needed for level = (level)^2 * 100
+                return Math.pow(level, 2) * 100;
+            }
+
+            updateUI() {
+                document.getElementById('level').textContent = this.gameState.level;
+                document.getElementById('xp').textContent = this.gameState.xp;
+                document.getElementById('xp-needed').textContent = this.calculateXPNeeded(this.gameState.level + 1);
+                document.getElementById('routes-completed').textContent = this.gameState.routesCompleted;
+            }
+
+            addAchievement(text) {
+                const achievementsList = document.getElementById('achievements-list');
+                
+                // Clear placeholder text
+                if (achievementsList.textContent.includes('DEPLOY ON FIRST')) {
+                    achievementsList.innerHTML = '';
+                }
+                
+                const achievement = document.createElement('div');
+                achievement.className = 'achievement';
+                achievement.textContent = `🏆 ${text}`;
+                
+                achievementsList.insertBefore(achievement, achievementsList.firstChild);
+                
+                // Keep only last 5 achievements
+                while (achievementsList.children.length > 5) {
+                    achievementsList.removeChild(achievementsList.lastChild);
+                }
+            }
+
+            loadGameState() {
+                const saved = localStorage.getItem('fogOfWalkGameState'); // Fixed key
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    // Ensure new properties exist
+                    if (!state.hasOwnProperty('routesCompleted')) state.routesCompleted = 0;
+                    if (!state.hasOwnProperty('completedRoutes')) state.completedRoutes = [];
+                    return state;
+                }
+                
+                return {
+                    level: 1,
+                    xp: 0,
+                    routesCompleted: 0,
+                    completedRoutes: []
+                };
+            }
+
+            saveGameState() {
+                localStorage.setItem('fogOfWalkGameState', JSON.stringify(this.gameState)); // Fixed key
+            }
+
+            addDebugInfo(message) {
+                console.log(message);
+                const debugPanel = document.getElementById('debug-panel');
+                if (debugPanel) {
+                    const debugEntry = document.createElement('div');
+                    debugEntry.className = 'debug-entry';
+                    debugEntry.innerHTML = `<span class="debug-time">${new Date().toLocaleTimeString()}</span> ${message}`;
+                    debugPanel.appendChild(debugEntry);
+                    
+                    // Keep only last 20 debug entries
+                    while (debugPanel.children.length > 20) {
+                        debugPanel.removeChild(debugPanel.firstChild);
+                    }
+                    
+                    // Auto-scroll to bottom
+                    debugPanel.scrollTop = debugPanel.scrollHeight;
+                }
+            }
+
+            clearDebugInfo() {
+                const debugPanel = document.getElementById('debug-panel');
+                if (debugPanel) {
+                    debugPanel.innerHTML = '';
+                }
+            }
+
+            toggleDebugPanel() {
+                const debugContainer = document.getElementById('debug-container');
+                if (debugContainer) {
+                    debugContainer.style.display = debugContainer.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new FogOfWalk();
+        });
+    </script>
+</body>
+</html>

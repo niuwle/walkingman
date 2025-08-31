@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Walking Man v2.1.0 - Achievements & Time Estimation</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #00ff41;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .demo-title {
+            font-size: 3rem;
+            color: #00ff41;
+            text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+        .demo-subtitle {
+            color: #ff6b35;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            border: 2px solid #333;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .feature-card h3 {
+            color: #ff6b35;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .achievement-badge {
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.2) 0%, rgba(255, 107, 53, 0.2) 100%);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+        .achievement-badge:hover {
+            border-color: #00ff41;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+        }
+        .badge-icon {
+            font-size: 2rem;
+            min-width: 50px;
+            text-align: center;
+        }
+        .badge-info {
+            flex: 1;
+        }
+        .badge-title {
+            font-weight: bold;
+            color: #00ff41;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        .badge-description {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+        .time-demo {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .time-example {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(40, 40, 40, 0.6);
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+        .distance {
+            color: #ff6b35;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .time {
+            color: #00ff41;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .stats-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(40, 40, 40, 0.6) 100%);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #00ff41;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+        }
+        .launch-btn {
+            background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%);
+            color: #000;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            margin: 20px 10px;
+        }
+        .launch-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 40px rgba(0, 255, 65, 0.6);
+        }
+        .category-header {
+            color: #ff6b35;
+            font-size: 1.2rem;
+            margin: 20px 0 10px 0;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <div class="demo-title">⚡ THE WALKING MAN</div>
+            <div class="demo-subtitle">ACHIEVEMENTS & TIME ESTIMATION SYSTEM</div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>⏱️ ESTIMATED COMPLETION TIME</h3>
+                <p style="text-align: center; margin-bottom: 20px;">Smart time calculation based on distance and walking speed</p>
+                
+                <div class="time-demo">
+                    <h4 style="color: #ff6b35; margin-bottom: 15px;">TIME CALCULATION EXAMPLES</h4>
+                    
+                    <div class="time-example">
+                        <span class="distance">1.0 KM</span>
+                        <span>→</span>
+                        <span class="time">15 MIN</span>
+                    </div>
+                    
+                    <div class="time-example">
+                        <span class="distance">2.5 KM</span>
+                        <span>→</span>
+                        <span class="time">36 MIN</span>
+                    </div>
+                    
+                    <div class="time-example">
+                        <span class="distance">5.0 KM</span>
+                        <span>→</span>
+                        <span class="time">72 MIN</span>
+                    </div>
+                    
+                    <div style="margin-top: 15px; font-size: 0.9rem; color: #888;">
+                        * Based on 5 km/h walking speed + 20% navigation overhead
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🎖️ ACHIEVEMENT BADGE SYSTEM</h3>
+                
+                <div class="category-header">MISSION MILESTONES</div>
+                <div class="achievement-badge">
+                    <div class="badge-icon">🎖️</div>
+                    <div class="badge-info">
+                        <div class="badge-title">FIRST BLOOD</div>
+                        <div class="badge-description">Complete your first mission</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🏅</div>
+                    <div class="badge-info">
+                        <div class="badge-title">SQUAD LEADER</div>
+                        <div class="badge-description">Complete 5 missions</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🌟</div>
+                    <div class="badge-info">
+                        <div class="badge-title">COLONEL</div>
+                        <div class="badge-description">Complete 100 missions</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🗺️ EXPLORATION BADGES</h3>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🗺️</div>
+                    <div class="badge-info">
+                        <div class="badge-title">SCOUT</div>
+                        <div class="badge-description">Explore 25% of zone</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🧭</div>
+                    <div class="badge-info">
+                        <div class="badge-title">NAVIGATOR</div>
+                        <div class="badge-description">Explore 50% of zone</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">👑</div>
+                    <div class="badge-info">
+                        <div class="badge-title">ZONE MASTER</div>
+                        <div class="badge-description">Explore 90% of zone</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🏃 DISTANCE ACHIEVEMENTS</h3>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🚶</div>
+                    <div class="badge-info">
+                        <div class="badge-title">WALKER</div>
+                        <div class="badge-description">Walk 10km total distance</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🏃</div>
+                    <div class="badge-info">
+                        <div class="badge-title">RUNNER</div>
+                        <div class="badge-description">Walk 50km total distance</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🏃‍♂️</div>
+                    <div class="badge-info">
+                        <div class="badge-title">MARATHON MAN</div>
+                        <div class="badge-description">Walk 100km total distance</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <h3>⚡ RANK PROMOTIONS</h3>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">⚡</div>
+                    <div class="badge-info">
+                        <div class="badge-title">PROMOTED</div>
+                        <div class="badge-description">Reach Rank 2</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🔥</div>
+                    <div class="badge-info">
+                        <div class="badge-title">VETERAN</div>
+                        <div class="badge-description">Reach Rank 5</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">💎</div>
+                    <div class="badge-info">
+                        <div class="badge-title">ELITE</div>
+                        <div class="badge-description">Reach Rank 10</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <h3>🏙️ STREET EXPLORER</h3>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🛣️</div>
+                    <div class="badge-info">
+                        <div class="badge-title">STREET WALKER</div>
+                        <div class="badge-description">Explore 10 streets</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🏙️</div>
+                    <div class="badge-info">
+                        <div class="badge-title">URBAN EXPLORER</div>
+                        <div class="badge-description">Explore 50 streets</div>
+                    </div>
+                </div>
+                
+                <div class="achievement-badge">
+                    <div class="badge-icon">🌆</div>
+                    <div class="badge-info">
+                        <div class="badge-title">CITY CONQUEROR</div>
+                        <div class="badge-description">Explore 100 streets</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-card">
+            <h3>📊 ENHANCED STATS TRACKING</h3>
+            <div class="stats-preview">
+                <div class="stat-card">
+                    <div class="stat-label">RANK</div>
+                    <div class="stat-value">5</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">XP</div>
+                    <div class="stat-value">1250</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">MISSIONS</div>
+                    <div class="stat-value">12</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">DISTANCE</div>
+                    <div class="stat-value">25.4</div>
+                </div>
+            </div>
+            <p style="text-align: center; margin-top: 20px; color: #888;">
+                Now tracks total distance walked across all missions
+            </p>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <h3 style="color: #ff6b35; margin-bottom: 20px; letter-spacing: 2px;">READY FOR TACTICAL DEPLOYMENT</h3>
+            <p style="margin-bottom: 30px; font-size: 1.1rem;">Experience the enhanced achievement system and time estimation</p>
+            <button class="launch-btn" onclick="window.open('index.html', '_blank')">
+                🚀 LAUNCH THE WALKING MAN v2.1.0
+            </button>
+            <button class="launch-btn" onclick="window.open('tmp_rovodev_tactical_demo.html', '_blank')" style="background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);">
+                🎨 VIEW UI DEMO
+            </button>
+        </div>
+
+        <div class="feature-card" style="margin-top: 30px;">
+            <h3>🎯 KEY FEATURES SUMMARY</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div>
+                    <h4 style="color: #00ff41; margin-bottom: 10px;">⏱️ Time Estimation</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        <li>✅ Smart calculation based on distance</li>
+                        <li>✅ Includes navigation overhead</li>
+                        <li>✅ Displayed before mission start</li>
+                        <li>✅ Helps plan your walks</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="color: #00ff41; margin-bottom: 10px;">🏆 Achievement System</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        <li>✅ 15+ unique achievement badges</li>
+                        <li>✅ Mission, exploration, distance milestones</li>
+                        <li>✅ Rank promotion celebrations</li>
+                        <li>✅ Persistent badge tracking</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
